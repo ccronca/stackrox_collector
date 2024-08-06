@@ -28,6 +28,9 @@ BoolEnvVar network_drop_ignored("ROX_NETWORK_DROP_IGNORED", true);
 // The default value contains link-local addresses for IPv4 (RFC3927) and IPv6 (RFC2462)
 StringListEnvVar ignored_networks("ROX_IGNORE_NETWORKS", std::vector<std::string>({"169.254.0.0/16", "fe80::/10"}));
 
+// Connection endpoints matching a network prefix listed here will never be aggregated.
+StringListEnvVar non_aggregated_networks("ROX_NON_AGGREGATED_NETWORKS", std::vector<std::string>());
+
 // If true, set curl to be verbose, adding further logging that might be useful for debugging.
 BoolEnvVar set_curl_verbose("ROX_COLLECTOR_SET_CURL_VERBOSE", false);
 
@@ -172,20 +175,33 @@ void CollectorConfig::InitCollectorConfig(CollectorArgs* args) {
     ignored_l4proto_port_pairs_ = kIgnoredL4ProtoPortPairs;
   }
 
-  std::for_each(ignored_networks.value().begin(), ignored_networks.value().end(),
-                [&ignored_networks = this->ignored_networks_](const std::string& str) {
-                  if (str.empty())
-                    return;
+  for (const std::string& str : ignored_networks.value()) {
+    if (str.empty())
+      continue;
 
-                  std::optional<IPNet> net = IPNet::parse(str);
+    std::optional<IPNet> net = IPNet::parse(str);
 
-                  if (net) {
-                    CLOG(INFO) << "Ignore network : " << *net;
-                    ignored_networks.emplace_back(std::move(*net));
-                  } else {
-                    CLOG(ERROR) << "Invalid network in ROX_IGNORE_NETWORKS : " << str;
-                  }
-                });
+    if (net) {
+      CLOG(INFO) << "Ignore network : " << *net;
+      ignored_networks_.emplace_back(std::move(*net));
+    } else {
+      CLOG(ERROR) << "Invalid network in ROX_IGNORE_NETWORKS : " << str;
+    }
+  }
+
+  for (const std::string& str : non_aggregated_networks.value()) {
+    if (str.empty())
+      continue;
+
+    std::optional<IPNet> net = IPNet::parse(str);
+
+    if (net) {
+      CLOG(INFO) << "Non-aggregated network : " << *net;
+      non_aggregated_networks_.emplace_back(std::move(*net));
+    } else {
+      CLOG(ERROR) << "Invalid network in ROX_NON_AGGREGATED_NETWORKS : " << str;
+    }
+  }
 
   if (set_curl_verbose) {
     curl_verbose_ = true;
@@ -424,16 +440,21 @@ unsigned int CollectorConfig::GetSinspBufferSize() const {
 
   max_buffer_size = std::ceil((float)sinsp_total_buffer_size_ / (float)n_buffers);
 
-  // It would be awkward to have a buffer size of e.g. 3.14159..., align by the
-  // highest level, e.g. MiB, KiB.
-  int magnitude = 0;
-  while (max_buffer_size >> 10) {
-    max_buffer_size = max_buffer_size >> 10;
-    magnitude++;
-  }
+  // Determine largest power of two that is not greater than max_buffer_size,
+  // is a multiple of the page size (4096), and greater than two pages to meet
+  // the requirements for ringbuffer dimensions in
+  // falcosecurity-libs/driver/ppm_ringbuffer.h
+  unsigned int maximum_power_of_two_exponent = static_cast<unsigned int>(std::log2(max_buffer_size));
 
-  effective_buffer_size = std::min(sinsp_buffer_size_,
-                                   (max_buffer_size << magnitude * 10));
+  // The max_buffer_size could be arbitrary small here, so verify that the
+  // resulting exponent value is large enough.
+  //
+  // A power of two is always a multiple of one page size if the exponent is
+  // larger than 12 (2^12 = 4096). Falco also requires this value to be greater
+  // than two pages, meaning that the exponent has to be at least 14.
+  maximum_power_of_two_exponent = std::max((unsigned int)14, maximum_power_of_two_exponent);
+
+  effective_buffer_size = std::min(sinsp_buffer_size_, (unsigned int)(1 << maximum_power_of_two_exponent));
 
   if (effective_buffer_size != sinsp_buffer_size_) {
     CLOG(INFO) << "Use modified ringbuf size of "

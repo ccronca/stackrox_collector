@@ -21,6 +21,12 @@ port pairs (at the moment only `udp/9`). The default is true.
 Any connection with a remote peer matching this list will not be reported.
 The default is `169.254.0.0/16,fe80::/10`
 
+* `ROX_NON_AGGREGATED_NETWORKS`: A coma-separated list of network prefixes
+indicating endpoints which should never be considered for aggregation.
+This option can be useful when the CIDR blocks used for services or PODs are
+not standard private subnets, as it will prevent Collector from handling them
+as public IPs.
+
 * `ROX_NETWORK_GRAPH_PORTS`: Controls whether to retrieve TCP listening
 sockets, while reading connection information from procfs. The default is true.
 
@@ -61,7 +67,8 @@ special, it instructs sinsp to allocate only one buffer no matter how many CPUs
 are there. This parameter affects CO-RE BPF only.
 
 * `ROX_COLLECTOR_SINSP_BUFFER_SIZE`: Specifies the size of a sinsp buffer in
-bytes. The default value is 16 MB.
+bytes. The default value is 8MB. This value must be a power of 2, a multiple
+of the system page size and greater than `2 * page_size`.
 
 * `ROX_COLLECTOR_SINSP_TOTAL_BUFFER_SIZE`: Specifies the allowed total size of
 all sinsp buffer in bytes. If the actual value will be larger than that due to
@@ -81,7 +88,7 @@ is quite verbose. The default is true.
 
 * `ROX_COLLECTOR_INTROSPECTION_ENABLE`: Enable the introspection API and publish the
 corresponding endpoints. With this API, it is possible to dump some of the
-internal state of Collector. Refer to the 
+internal state of Collector. Refer to the
 [troubleshooting](troubleshooting.md#introspection-endpoints) section for more details.
 The default is false.
 

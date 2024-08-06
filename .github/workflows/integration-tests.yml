@@ -13,6 +13,11 @@ on:
           Tag used for QA containers
         type: string
         required: true
+      collector-tests-tag:
+        description: |
+          Tag used for the test container
+        type: string
+        required: true
       job-tag:
         description: |
           Used to differentiate between different sources when creating
@@ -33,7 +38,7 @@ on:
         default: false
 
 jobs:
-  amd64-required-integration-tests:
+  amd64-integration-tests:
     uses: ./.github/workflows/integration-tests-vm-type.yml
     strategy:
       # ensure that if one part of the matrix fails, the
@@ -43,23 +48,6 @@ jobs:
         vm_type:
           - rhcos
           - ubuntu-os
-    with:
-      vm_type: ${{ matrix.vm_type }}
-      collector-tag: ${{ inputs.collector-tag }}
-      collector-qa-tag: ${{ inputs.collector-qa-tag }}
-      job-tag: ${{ inputs.job-tag }}
-      collector-repo: ${{ inputs.collector-repo }}
-    secrets: inherit
-
-  amd64-all-integration-tests:
-    uses: ./.github/workflows/integration-tests-vm-type.yml
-    if: contains(github.event.pull_request.labels.*.name, 'all-integration-tests') || github.event_name == 'push'
-    strategy:
-      # ensure that if one part of the matrix fails, the
-      # rest will continue
-      fail-fast: false
-      matrix:
-        vm_type:
           - cos
           - flatcar
           - fedora-coreos
@@ -71,6 +59,7 @@ jobs:
       vm_type: ${{ matrix.vm_type }}
       collector-tag: ${{ inputs.collector-tag }}
       collector-qa-tag: ${{ inputs.collector-qa-tag }}
+      collector-tests-tag: ${{ inputs.collector-tests-tag }}
       job-tag: ${{ inputs.job-tag }}
       collector-repo: ${{ inputs.collector-repo }}
     secrets: inherit
@@ -78,10 +67,8 @@ jobs:
   arm64-integration-tests:
     uses: ./.github/workflows/integration-tests-vm-type.yml
     if: |
-      !inputs.is-konflux && (
-        github.event_name == 'push' ||
-        contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
-      )
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
     strategy:
       # ensure that if one part of the matrix fails, the
       # rest will continue
@@ -89,7 +76,7 @@ jobs:
       matrix:
         vm_type:
           - rhel-arm64
-          - ubuntu-os-arm64
+          - ubuntu-arm
           - sles-arm64
           - fcarm
 
@@ -97,6 +84,7 @@ jobs:
       vm_type: ${{ matrix.vm_type }}
       collector-tag: ${{ inputs.collector-tag }}
       collector-qa-tag: ${{ inputs.collector-qa-tag }}
+      collector-tests-tag: ${{ inputs.collector-tests-tag }}
       job-tag: ${{ inputs.job-tag }}
       collector-repo: ${{ inputs.collector-repo }}
     secrets: inherit
@@ -104,14 +92,13 @@ jobs:
   s390x-integration-tests:
     uses: ./.github/workflows/integration-tests-vm-type.yml
     if: |
-      !inputs.is-konflux && (
-        github.event_name == 'push' ||
-        contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
-      )
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
     with:
       vm_type: rhel-s390x
       collector-tag: ${{ inputs.collector-tag }}
       collector-qa-tag: ${{ inputs.collector-qa-tag }}
+      collector-tests-tag: ${{ inputs.collector-tests-tag }}
       job-tag: ${{ inputs.job-tag }}
       collector-repo: ${{ inputs.collector-repo }}
     secrets: inherit
@@ -119,24 +106,22 @@ jobs:
   ppc64le-integration-tests:
     uses: ./.github/workflows/integration-tests-vm-type.yml
     if: |
-      !inputs.is-konflux && (
-        github.event_name == 'push' ||
-        contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
-      )
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-multiarch-builds')
     with:
       vm_type: rhel-ppc64le
       collector-tag: ${{ inputs.collector-tag }}
       collector-qa-tag: ${{ inputs.collector-qa-tag }}
+      collector-tests-tag: ${{ inputs.collector-tests-tag }}
       job-tag: ${{ inputs.job-tag }}
       collector-repo: ${{ inputs.collector-repo }}
     secrets: inherit
 
   notify:
     runs-on: ubuntu-latest
-    if: always() && contains(join(needs.*.result, ','), 'failure') && github.event_name == 'push'
+    if: always() && contains(join(needs.*.result, ','), 'failure') && github.event_name != 'pull_request'
     needs:
-      - amd64-required-integration-tests
-      - amd64-all-integration-tests
+      - amd64-integration-tests
       - arm64-integration-tests
       - s390x-integration-tests
       - ppc64le-integration-tests

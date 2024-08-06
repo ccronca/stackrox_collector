@@ -1,12 +1,11 @@
 name: Run konflux workflows
 
 on:
+  schedule:
+    - cron: 0 6 * * *
   push:
     branches:
       - master
-      - release-*
-    tags:
-      - 3.*.*
   pull_request:
     types:
       - labeled
@@ -22,7 +21,7 @@ concurrency:
 jobs:
   run-tests:
     uses: ./.github/workflows/konflux-tests.yml
-    if: github.event_name == 'push' ||
+    if: github.event_name != 'pull_request' ||
         contains(github.head_ref, 'konflux') ||
         contains(github.head_ref, 'rhtap')
     secrets: inherit
