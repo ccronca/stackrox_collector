@@ -10,7 +10,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
 	"github.com/stackrox/collector/integration-tests/pkg/executor"
-	"github.com/stackrox/collector/integration-tests/suites/log"
+	"github.com/stackrox/collector/integration-tests/pkg/log"
 )
 
 type DockerCollectorManager struct {

@@ -8,8 +8,8 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/log"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
-	"github.com/stackrox/collector/integration-tests/suites/log"
 	"github.com/stretchr/testify/assert"
 )
 

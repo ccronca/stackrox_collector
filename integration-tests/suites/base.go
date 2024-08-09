@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,9 +18,9 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
 	"github.com/stackrox/collector/integration-tests/pkg/executor"
+	"github.com/stackrox/collector/integration-tests/pkg/log"
 	"github.com/stackrox/collector/integration-tests/pkg/mock_sensor"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
-	"github.com/stackrox/collector/integration-tests/suites/log"
 )
 
 const (
@@ -503,39 +502,6 @@ func (s *IntegrationTestSuiteBase) getPort(containerName string) (string, error)
 	}
 
 	return "", fmt.Errorf("no port mapping found: %v %v", rawString, portMap)
-}
-
-func (s *IntegrationTestSuiteBase) RunCollectorBenchmark() {
-	benchmarkName := "benchmark"
-	benchmarkImage := config.Images().QaImageByKey("performance-phoronix")
-
-	err := s.Executor().PullImage(benchmarkImage)
-	s.Require().NoError(err)
-
-	benchmarkArgs := []string{
-		"--env", "FORCE_TIMES_TO_RUN=1",
-		benchmarkImage,
-		"batch-benchmark", "collector",
-	}
-
-	containerID, err := s.launchContainer(benchmarkName, benchmarkArgs...)
-	s.Require().NoError(err)
-
-	_, err = s.waitForContainerToExit(benchmarkName, containerID, defaultWaitTickSeconds, 0)
-	s.Require().NoError(err)
-
-	benchmarkLogs, err := s.containerLogs("benchmark")
-	re := regexp.MustCompile(`Average: ([0-9.]+) Seconds`)
-	matches := re.FindSubmatch([]byte(benchmarkLogs))
-	if matches != nil {
-		log.Log("Benchmark Time: %s\n", matches[1])
-		f, err := strconv.ParseFloat(string(matches[1]), 64)
-		s.Require().NoError(err)
-		s.AddMetric("hackbench_avg_time", f)
-	} else {
-		log.Error("Benchmark Time: Not found! Logs: %s\n", benchmarkLogs)
-		assert.FailNow(s.T(), "Benchmark Time not found")
-	}
 }
 
 func (s *IntegrationTestSuiteBase) StartContainerStats() {

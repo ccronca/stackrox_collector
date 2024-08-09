@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
-	"github.com/stackrox/collector/integration-tests/suites/log"
+	"github.com/stackrox/collector/integration-tests/pkg/log"
 )
 
 var (
