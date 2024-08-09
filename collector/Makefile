@@ -65,15 +65,9 @@ txt-files:
 clean:
 	docker rm -fv build_collector || true
 	docker rm -fv container-stats benchmark collector grpc-server || true
+	rm -rf container/LICENSE-kernel-modules.txt
 	rm -rf container/bin
-	rm -rf container/driver
-	rm -rf container/libs
-	rm -rf container/rhel/scripts
-	rm -rf container/rhel/bundle.tar.gz
-	rm -rf container/devel/scripts
-	rm -rf container/devel/bundle.tar.gz
 	rm -rf container/THIRD_PARTY_NOTICES
-	rm -f container/Dockerfile.dev
 
 .PHONY: check
 check:
