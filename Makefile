@@ -26,7 +26,6 @@ builder:
 ifneq ($(BUILD_BUILDER_IMAGE), false)
 	docker buildx build --load --platform ${PLATFORM} \
 		-t quay.io/stackrox-io/collector-builder:$(COLLECTOR_BUILDER_TAG) \
-		-t "quay.io/stackrox-io/collector-builder
 		-f "$(CURDIR)/builder/Dockerfile" \
 		"$(CURDIR)/builder"
 else
