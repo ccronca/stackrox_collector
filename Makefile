@@ -24,12 +24,13 @@ container-dockerfile-dev:
 .PHONY: builder
 builder:
 ifneq ($(BUILD_BUILDER_IMAGE), false)
-	docker buildx build --load --platform $(PLATFORM) \
-		-t $(COLLECTOR_BUILDER_IMAGE) \
+	docker buildx build --load --platform ${PLATFORM} \
+		-t quay.io/stackrox-io/collector-builder:$(COLLECTOR_BUILDER_TAG) \
+		-t "quay.io/stackrox-io/collector-builder
 		-f "$(CURDIR)/builder/Dockerfile" \
 		"$(CURDIR)/builder"
 else
-	docker pull --platform $(PLATFORM) $(COLLECTOR_BUILDER_IMAGE)
+	docker pull --platform ${PLATFORM} quay.io/stackrox-io/collector-builder:$(COLLECTOR_BUILDER_TAG)
 endif
 
 collector: check-builder
@@ -45,7 +46,7 @@ unittest:
 
 image: collector unittest
 	make -C collector txt-files
-	docker buildx build --load --platform $(PLATFORM) \
+	docker buildx build --load --platform ${PLATFORM} \
 		--build-arg COLLECTOR_VERSION="$(COLLECTOR_TAG)" \
 		-f collector/container/Dockerfile \
 		-t quay.io/stackrox-io/collector:$(COLLECTOR_TAG) \
@@ -53,7 +54,7 @@ image: collector unittest
 
 image-dev: collector unittest container-dockerfile-dev
 	make -C collector txt-files
-	docker buildx build --load --platform $(PLATFORM) \
+	docker buildx build --load --platform ${PLATFORM} \
 		--build-arg collector_version="$(COLLECTOR_TAG)" \
 		--build-arg BUILD_TYPE=devel \
 		-f collector/container/Dockerfile.dev \
@@ -90,7 +91,7 @@ start-builder: builder teardown-builder
 		$(if $(LOCAL_SSH_PORT),-p $(LOCAL_SSH_PORT):22 )\
 		-w $(CURDIR) \
 		--cap-add sys_ptrace \
-		$(COLLECTOR_BUILDER_IMAGE)
+		quay.io/stackrox-io/collector-builder:$(COLLECTOR_BUILDER_TAG)
 
 .PHONY: check-builder
 check-builder:
