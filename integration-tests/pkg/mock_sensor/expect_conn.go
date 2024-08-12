@@ -1,6 +1,7 @@
 package mock_sensor
 
 import (
+	"fmt"
 	"testing"
 
 	"time"
@@ -17,10 +18,13 @@ import (
 // until timeout or until all the events have been received.
 func (s *MockSensor) ExpectConnections(t *testing.T, containerID string, timeout time.Duration, expected ...types.NetworkInfo) bool {
 
+	fmt.Printf("len(expected)=%d\n", len(expected))
 	to_find := funk.Filter(expected, func(x types.NetworkInfo) bool {
+		fmt.Printf("x=%+q\n", x)
 		return s.HasConnection(containerID, x)
 	}).([]types.NetworkInfo)
 
+	fmt.Printf("len(to_find)=%d\n", len(to_find))
 	if len(to_find) == 0 {
 		return true
 	}

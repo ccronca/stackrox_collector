@@ -172,11 +172,12 @@ func (m *MockSensor) HasConnection(containerID string, conn types.NetworkInfo) b
 	defer m.networkMutex.Unlock()
 
 	if conns, ok := m.connections[containerID]; ok {
+		fmt.Printf("%+q\n", conn)
 		_, exists := conns[conn]
-		return exists
+		return !exists
 	}
 
-	return false
+	return true
 }
 
 // Liveendpoints returns a channel that can be used to read live

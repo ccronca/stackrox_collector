@@ -1,6 +1,5 @@
 #include "NetworkSignalHandler.h"
 
-#include <cstring>
 #include <optional>
 
 #include <libsinsp/sinsp.h>
@@ -25,8 +24,12 @@ EventMap<Modifier> modifiers = {
         {"connect<", Modifier::ADD},
         {"accept<", Modifier::ADD},
         {"getsockopt<", Modifier::ADD},
+        {"sendto<", Modifier::ADD},
+        {"sendto>", Modifier::ADD},
         {"sendmsg<", Modifier::ADD},
         {"sendmsg>", Modifier::ADD},
+        {"recvfrom<", Modifier::ADD},
+        {"recvfrom>", Modifier::ADD},
         {"recvmsg<", Modifier::ADD},
         {"recvmsg>", Modifier::ADD},
     },
@@ -123,6 +126,9 @@ std::optional<Connection> NetworkSignalHandler::GetConnection(sinsp_evt* evt) {
 
   const std::string* container_id = event_extractor_->get_container_id(evt);
   if (!container_id) return std::nullopt;
+
+  CLOG(INFO) << "######### ID:" << *container_id << " - Client: " << client << " - Server: " << server;
+
   return {Connection(*container_id, *local, *remote, l4proto, is_server)};
 }
 
@@ -141,7 +147,19 @@ SignalHandler::Result NetworkSignalHandler::HandleSignal(sinsp_evt* evt) {
 
 std::vector<std::string> NetworkSignalHandler::GetRelevantEvents() {
   if (track_send_recv_) {
-    return {"close<", "shutdown<", "connect<", "accept<", "getsockopt<", "recvmsg<", "sendmsg<", "recvmsg>", "sendmsg>"};
+    return {
+        "close<",
+        "shutdown<",
+        "connect<",
+        "accept<",
+        "getsockopt<",
+        "sendto<",
+        "sendto>",
+        "sendmsg<",
+        "sendmsg>",
+        "recvmsg<",
+        "recvmsg>",
+    };
   }
   return {"close<", "shutdown<", "connect<", "accept<", "getsockopt<"};
 }

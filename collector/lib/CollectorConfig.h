@@ -46,8 +46,10 @@ class CollectorConfig {
       "vfork",
   };
   static constexpr const char* kSendRecvSyscalls[] = {
+      "sendto",
       "sendmsg",
       "sendmmsg",
+      "recvfrom",
       "recvmsg",
       "recvmmsg",
   };

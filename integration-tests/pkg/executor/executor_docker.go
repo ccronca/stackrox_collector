@@ -203,6 +203,20 @@ func (e *dockerExecutor) StopContainer(name string) (string, error) {
 	return e.ExecWithErrorCheck(containerErrorCheckFunction(name, "stop"), RuntimeCommand, "stop", name)
 }
 
+// CreateNetwork creates a docker network so containers can reference each other by name
+func (e *dockerExecutor) CreateNetwork(name string) (string, error) {
+	cmd := []string{RuntimeCommand, "network", "create", name}
+
+	return e.Exec(cmd...)
+}
+
+// RemoveNetwork will attempt to delete a docker network
+func (e *dockerExecutor) RemoveNetwork(name string) (string, error) {
+	cmd := []string{RuntimeCommand, "network", "rm", name}
+
+	return e.Exec(cmd...)
+}
+
 func (e *localCommandBuilder) ExecCommand(execArgs ...string) *exec.Cmd {
 	return exec.Command(execArgs[0], execArgs[1:]...)
 }

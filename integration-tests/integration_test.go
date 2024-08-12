@@ -483,3 +483,7 @@ func TestPerfEvent(t *testing.T) {
 func TestGperftools(t *testing.T) {
 	suite.Run(t, new(suites.GperftoolsTestSuite))
 }
+
+func TestUdpNetworkFlow(t *testing.T) {
+	suite.Run(t, new(suites.UdpNetworkFlow))
+}

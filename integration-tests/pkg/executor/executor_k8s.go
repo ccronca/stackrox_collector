@@ -150,6 +150,14 @@ func (e *K8sExecutor) StopContainer(name string) (string, error) {
 	return "", fmt.Errorf("Unimplemented")
 }
 
+func (e *K8sExecutor) CreateNetwork(name string) (string, error) {
+	return "", fmt.Errorf("Unimplemented")
+}
+
+func (e *K8sExecutor) RemoveNetwork(name string) (string, error) {
+	return "", fmt.Errorf("Unimplemented")
+}
+
 func (e *K8sExecutor) CreateNamespace(ns string) (*coreV1.Namespace, error) {
 	meta := metaV1.ObjectMeta{Name: ns}
 	return e.clientset.CoreV1().Namespaces().Create(context.Background(), &coreV1.Namespace{ObjectMeta: meta}, metaV1.CreateOptions{})

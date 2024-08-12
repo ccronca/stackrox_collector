@@ -25,6 +25,8 @@ type Executor interface {
 	KillContainer(name string) (string, error)
 	RemoveContainer(filter ContainerFilter) (string, error)
 	StopContainer(name string) (string, error)
+	CreateNetwork(name string) (string, error)
+	RemoveNetwork(name string) (string, error)
 }
 
 type CommandBuilder interface {
