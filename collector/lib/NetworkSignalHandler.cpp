@@ -28,10 +28,14 @@ EventMap<Modifier> modifiers = {
         {"sendto>", Modifier::ADD},
         {"sendmsg<", Modifier::ADD},
         {"sendmsg>", Modifier::ADD},
+        {"sendmmsg<", Modifier::ADD},
+        {"sendmmsg>", Modifier::ADD},
         {"recvfrom<", Modifier::ADD},
         {"recvfrom>", Modifier::ADD},
         {"recvmsg<", Modifier::ADD},
         {"recvmsg>", Modifier::ADD},
+        {"recvmmsg<", Modifier::ADD},
+        {"recvmmsg>", Modifier::ADD},
     },
     Modifier::INVALID,
 };
@@ -157,8 +161,12 @@ std::vector<std::string> NetworkSignalHandler::GetRelevantEvents() {
         "sendto>",
         "sendmsg<",
         "sendmsg>",
+        "sendmmsg<",
+        "sendmmsg>",
         "recvmsg<",
         "recvmsg>",
+        "recvmmsg<",
+        "recvmmsg>",
     };
   }
   return {"close<", "shutdown<", "connect<", "accept<", "getsockopt<"};
