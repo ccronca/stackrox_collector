@@ -23,7 +23,7 @@ type K8sExecutor struct {
 	clientset *kubernetes.Clientset
 }
 
-func newK8sExecutor() (*K8sExecutor, error) {
+func NewK8sExecutor() (*K8sExecutor, error) {
 	fmt.Println("Creating k8s configuration")
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -43,15 +43,7 @@ func newK8sExecutor() (*K8sExecutor, error) {
 	return k8s, nil
 }
 
-func (e *K8sExecutor) CopyFromHost(src string, dst string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) PullImage(image string) error {
-	return fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) IsContainerRunning(podName string) (bool, error) {
+func (e *K8sExecutor) IsPodRunning(podName string) (bool, error) {
 	pod, err := e.clientset.CoreV1().Pods(TESTS_NAMESPACE).Get(context.Background(), podName, metaV1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -64,7 +56,7 @@ func (e *K8sExecutor) IsContainerRunning(podName string) (bool, error) {
 	return pod.Status.ContainerStatuses[0].Ready, nil
 }
 
-func (e *K8sExecutor) ContainerID(podFilter ContainerFilter) string {
+func (e *K8sExecutor) PodContainerID(podFilter ContainerFilter) string {
 	pod, err := e.ClientSet().CoreV1().Pods(podFilter.Namespace).Get(context.Background(), podFilter.Name, metaV1.GetOptions{})
 	if err != nil {
 		fmt.Printf("%s\n", err)
@@ -94,7 +86,7 @@ func (e *K8sExecutor) ContainerID(podFilter ContainerFilter) string {
 	return common.ContainerShortID(containerID[i+1:])
 }
 
-func (e *K8sExecutor) ContainerExists(podFilter ContainerFilter) (bool, error) {
+func (e *K8sExecutor) PodExists(podFilter ContainerFilter) (bool, error) {
 	pod, err := e.clientset.CoreV1().Pods(podFilter.Namespace).Get(context.Background(), podFilter.Name, metaV1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -121,33 +113,9 @@ func (e *K8sExecutor) ExitCode(podFilter ContainerFilter) (int, error) {
 	return int(terminated.ExitCode), nil
 }
 
-func (e *K8sExecutor) Exec(args ...string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) ExecWithErrorCheck(errCheckFn func(string, error) error, args ...string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) ExecWithStdin(pipedContent string, args ...string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) ExecWithoutRetry(args ...string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) KillContainer(name string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
-}
-
-func (e *K8sExecutor) RemoveContainer(podFilter ContainerFilter) (string, error) {
+func (e *K8sExecutor) RemovePod(podFilter ContainerFilter) (string, error) {
 	err := e.clientset.CoreV1().Pods(podFilter.Namespace).Delete(context.Background(), podFilter.Name, metaV1.DeleteOptions{})
 	return "", err
-}
-
-func (e *K8sExecutor) StopContainer(name string) (string, error) {
-	return "", fmt.Errorf("Unimplemented")
 }
 
 func (e *K8sExecutor) CreateNamespace(ns string) (*coreV1.Namespace, error) {

@@ -72,6 +72,10 @@ ci-integration-tests:
 ci-benchmarks:
 	make -C integration-tests ci-benchmarks
 
+.PHONY: ci-benchmarks
+ci-build-image:
+	make -C integration-tests build-image
+
 .PHONY: ci-all-tests
 ci-all-tests: ci-benchmarks ci-integration-tests
 

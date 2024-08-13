@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/stackrox/collector/integration-tests/pkg/mock_sensor"
+	"github.com/stretchr/testify/suite"
 	"io"
 	"net/http"
 	"os"
@@ -30,11 +32,39 @@ type NamespaceTest struct {
 }
 
 type K8sNamespaceTestSuite struct {
-	IntegrationTestSuiteBase
-	tests       []NamespaceTest
-	collectorIP string
+	suite.Suite
+	k8sExecutor  *executor.K8sExecutor
+	k8sCollector *collector.K8sCollectorManager
+	sensor       *mock_sensor.MockSensor
+	tests        []NamespaceTest
+	collectorIP  string
 
 	targetNamespaceWatcher watch.Interface
+}
+
+// Sensor returns the current mock sensor object, or initializes a new one
+// if it is nil.
+func (s *K8sNamespaceTestSuite) Sensor() *mock_sensor.MockSensor {
+	if s.sensor == nil {
+		s.sensor = mock_sensor.NewMockSensor(s.T().Name())
+	}
+	return s.sensor
+}
+
+func (s *K8sNamespaceTestSuite) Executor() *executor.K8sExecutor {
+	if s.k8sExecutor == nil {
+		exec, err := executor.NewK8sExecutor()
+		s.Require().NoError(err)
+		s.k8sExecutor = exec
+	}
+	return s.k8sExecutor
+}
+
+func (s *K8sNamespaceTestSuite) Collector() *collector.K8sCollectorManager {
+	if s.k8sCollector == nil {
+		s.k8sCollector = collector.NewK8sManager(*(s.Executor()), s.T().Name())
+	}
+	return s.k8sCollector
 }
 
 func (k *K8sNamespaceTestSuite) SetupSuite() {
@@ -104,6 +134,8 @@ func (k *K8sNamespaceTestSuite) TearDownSuite() {
 }
 
 func (k *K8sNamespaceTestSuite) TestK8sNamespace() {
+	// Sleep to ensure asynchronous container engine lookups have completed
+	time.Sleep(10 * time.Second)
 	baseUri := "http://" + k.collectorIP + ":8080/state/containers/"
 
 	for _, tt := range k.tests {
@@ -136,12 +168,7 @@ func (k *K8sNamespaceTestSuite) TestK8sNamespace() {
 }
 
 func (k *K8sNamespaceTestSuite) execPod(podName string, namespace string, command []string) (string, error) {
-	k8sExec, ok := k.executor.(*executor.K8sExecutor)
-	if !ok {
-		return "", fmt.Errorf("Expected k8s executor, got=%T", k.executor)
-	}
-
-	req := k8sExec.ClientSet().CoreV1().RESTClient().Post().Resource("Pods").Name(podName).Namespace(namespace).SubResource("exec")
+	req := k.Executor().ClientSet().CoreV1().RESTClient().Post().Resource("Pods").Name(podName).Namespace(namespace).SubResource("exec")
 	option := &coreV1.PodExecOptions{
 		Command: command,
 		Stdin:   false,
@@ -175,14 +202,12 @@ func (k *K8sNamespaceTestSuite) execPod(podName string, namespace string, comman
 }
 
 func (k *K8sNamespaceTestSuite) watchPod(selector string, namespace string, callback func() bool) {
-	k8sExec := k.Executor().(*executor.K8sExecutor)
-
 	timeout := int64(60)
 	listOptions := metaV1.ListOptions{
 		TimeoutSeconds: &timeout,
 		LabelSelector:  selector,
 	}
-	watcher, err := k8sExec.ClientSet().CoreV1().Pods(namespace).Watch(context.Background(), listOptions)
+	watcher, err := k.Executor().ClientSet().CoreV1().Pods(namespace).Watch(context.Background(), listOptions)
 	k.Require().NoError(err)
 
 	for event := range watcher.ResultChan() {
@@ -199,20 +224,16 @@ func (k *K8sNamespaceTestSuite) watchPod(selector string, namespace string, call
 }
 
 func (k *K8sNamespaceTestSuite) getCollectorIP() string {
-	k8sExec := k.Executor().(*executor.K8sExecutor)
-	pod, err := k8sExec.ClientSet().CoreV1().Pods(collector.TEST_NAMESPACE).Get(context.Background(), "collector", metaV1.GetOptions{})
+	pod, err := k.Executor().ClientSet().CoreV1().Pods(collector.TEST_NAMESPACE).Get(context.Background(), "collector", metaV1.GetOptions{})
 	k.Require().NoError(err)
 
 	return pod.Status.PodIP
 }
 
 func (k *K8sNamespaceTestSuite) createTargetNamespace() {
-	k8sExec, ok := k.Executor().(*executor.K8sExecutor)
-	k.Require().True(ok)
-
-	_, err := k8sExec.CreateNamespace(NAMESPACE)
+	_, err := k.Executor().CreateNamespace(NAMESPACE)
 	k.Require().NoError(err)
-	eventWatcher, err := k8sExec.CreateNamespaceEventWatcher(k.collector.TestName(), NAMESPACE)
+	eventWatcher, err := k.Executor().CreateNamespaceEventWatcher(k.Collector().TestName(), NAMESPACE)
 	k.Require().NoError(err)
 	k.targetNamespaceWatcher = eventWatcher
 }
@@ -222,12 +243,9 @@ func (k *K8sNamespaceTestSuite) teardownTargetNamespace() {
 		k.targetNamespaceWatcher.Stop()
 	}
 
-	e, ok := k.Executor().(*executor.K8sExecutor)
-	k.Require().True(ok)
-
-	exists, _ := e.NamespaceExists(NAMESPACE)
+	exists, _ := k.Executor().NamespaceExists(NAMESPACE)
 	if exists {
-		e.RemoveNamespace(NAMESPACE)
+		k.Executor().RemoveNamespace(NAMESPACE)
 	}
 }
 
@@ -247,9 +265,7 @@ func (k *K8sNamespaceTestSuite) launchNginxPod() string {
 		},
 	}
 
-	k8sExec, ok := k.Executor().(*executor.K8sExecutor)
-	k.Require().True(ok)
-	_, err := k8sExec.CreatePod(NAMESPACE, pod)
+	_, err := k.Executor().CreatePod(NAMESPACE, pod)
 	k.Require().NoError(err)
 
 	// Wait for nginx pod to start up
@@ -260,25 +276,22 @@ func (k *K8sNamespaceTestSuite) launchNginxPod() string {
 
 	fmt.Println("Waiting for nginx to start running")
 	k.watchPod("app=nginx", NAMESPACE, func() bool {
-		return k8sExec.ContainerID(pf) != ""
+		return k.Executor().PodContainerID(pf) != ""
 	})
 
-	return k8sExec.ContainerID(pf)
+	return k.Executor().PodContainerID(pf)
 }
 
 func (k *K8sNamespaceTestSuite) teardownNginxPod() {
-	e, ok := k.Executor().(*executor.K8sExecutor)
-	k.Require().True(ok)
-
 	nginxPodFilter := executor.ContainerFilter{
 		Name:      "nginx",
 		Namespace: NAMESPACE,
 	}
-	exists, _ := k.Executor().ContainerExists(nginxPodFilter)
+	exists, _ := k.Executor().PodExists(nginxPodFilter)
 
 	if exists {
-		err := e.CapturePodConfiguration(k.collector.TestName(), NAMESPACE, "nginx")
+		err := k.Executor().CapturePodConfiguration(k.Collector().TestName(), NAMESPACE, "nginx")
 		k.Require().NoError(err)
-		k.Executor().RemoveContainer(nginxPodFilter)
+		k.Executor().RemovePod(nginxPodFilter)
 	}
 }

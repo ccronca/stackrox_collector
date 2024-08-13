@@ -2,8 +2,6 @@ package executor
 
 import (
 	"os/exec"
-
-	"github.com/stackrox/collector/integration-tests/pkg/config"
 )
 
 type ContainerFilter struct {
@@ -33,8 +31,5 @@ type CommandBuilder interface {
 }
 
 func New() (Executor, error) {
-	if config.HostInfo().IsK8s() {
-		return newK8sExecutor()
-	}
 	return newDockerExecutor()
 }

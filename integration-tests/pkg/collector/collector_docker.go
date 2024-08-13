@@ -25,7 +25,7 @@ type DockerCollectorManager struct {
 	containerID     string
 }
 
-func newDockerManager(e executor.Executor, name string) *DockerCollectorManager {
+func NewDockerCollectorManager(e executor.Executor, name string) *DockerCollectorManager {
 	collectorOptions := config.CollectorInfo()
 
 	collectionMethod := config.CollectionMethod()
