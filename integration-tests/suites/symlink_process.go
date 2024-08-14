@@ -7,6 +7,7 @@ import (
 
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
 )
 
@@ -35,7 +36,10 @@ func (s *SymbolicLinkProcessTestSuite) SetupSuite() {
 	actionFile := "/tmp/action_file_ln.txt"
 	_, err := s.executor.Exec("sh", "-c", "rm "+actionFile+" || true")
 
-	containerID, err := s.launchContainer("process-ports", "-v", "/tmp:/tmp", "--entrypoint", "./plop", processImage, actionFile)
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:   "process-ports",
+		Image:  processImage,
+		Mounts: map[string]string{"/tmp": "/tmp"}})
 	s.Require().NoError(err)
 
 	s.serverContainer = common.ContainerShortID(containerID)

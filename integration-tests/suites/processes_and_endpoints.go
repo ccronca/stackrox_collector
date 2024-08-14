@@ -6,6 +6,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,10 +36,11 @@ func (s *ProcessesAndEndpointsTestSuite) SetupSuite() {
 
 	s.StartCollector(false, &collectorOptions)
 
-	image := config.Images().QaImageByKey("qa-plop")
-	cmd := []string{"--entrypoint", s.Executable, image}
-	cmd = append(cmd, s.Args...)
-	containerID, err := s.launchContainer(s.ContainerName, cmd...)
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:       s.ContainerName,
+		Image:      config.Images().QaImageByKey("qa-plop"),
+		EntryPoint: []string{s.Executable},
+		Command:    s.Args})
 
 	s.Require().NoError(err)
 	s.container = common.ContainerShortID(containerID)

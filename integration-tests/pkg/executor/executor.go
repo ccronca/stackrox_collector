@@ -23,6 +23,24 @@ type Executor interface {
 	KillContainer(name string) (string, error)
 	RemoveContainer(filter ContainerFilter) (string, error)
 	StopContainer(name string) (string, error)
+	ExecContainer(containerName string, command []string) (string, error)
+	GetContainerPort(containerID string) (string, error)
+	GetContainerIP(containerID string) (string, error)
+	GetContainerLogs(containerID string) (string, error)
+	StartContainer(config ContainerStartConfig) (string, error)
+	GetContainerHealthCheck(containerID string) (string, error)
+	IsContainerFoundFiltered(containerID, filter string) (bool, error)
+}
+
+type ContainerStartConfig struct {
+	Name        string
+	Image       string
+	Privileged  bool
+	NetworkMode string
+	Mounts      map[string]string
+	Env         map[string]string
+	Command     []string
+	EntryPoint  []string
 }
 
 type CommandBuilder interface {

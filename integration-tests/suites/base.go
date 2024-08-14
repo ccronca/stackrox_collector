@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
-	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
 	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stackrox/collector/integration-tests/pkg/log"
@@ -309,6 +308,10 @@ func (s *IntegrationTestSuiteBase) GetLogLines(containerName string) []string {
 	return logLines
 }
 
+func (s *IntegrationTestSuiteBase) startContainer(startConfig executor.ContainerStartConfig) (string, error) {
+	return s.Executor().StartContainer(startConfig)
+}
+
 func (s *IntegrationTestSuiteBase) launchContainer(name string, args ...string) (string, error) {
 	cmd := []string{executor.RuntimeCommand, "run", "-d", "--name", name}
 	cmd = append(cmd, args...)
@@ -331,12 +334,6 @@ func (s *IntegrationTestSuiteBase) waitForContainerStatus(
 	timeoutThreshold time.Duration,
 	filter string) (bool, error) {
 
-	cmd := []string{
-		executor.RuntimeCommand, "ps", "-qa",
-		"--filter", "id=" + containerID,
-		"--filter", filter,
-	}
-
 	start := time.Now()
 	tick := time.Tick(tickSeconds)
 	tickElapsed := time.Tick(1 * time.Minute)
@@ -349,15 +346,13 @@ func (s *IntegrationTestSuiteBase) waitForContainerStatus(
 	for {
 		select {
 		case <-tick:
-			output, err := s.Executor().Exec(cmd...)
-			outLines := strings.Split(output, "\n")
-			lastLine := outLines[len(outLines)-1]
-			if lastLine == common.ContainerShortID(containerID) {
-				return true, nil
-			}
+			found, err := s.Executor().IsContainerFoundFiltered(containerID, filter)
 			if err != nil {
 				log.Error("Retrying waitForContainerStatus(%s, %s): Error: %v\n",
 					containerName, containerID, err)
+			}
+			if found {
+				return true, nil
 			}
 		case <-timeout:
 			log.Error("Timed out waiting for container %s to become %s, elapsed Time: %s\n",
@@ -379,27 +374,14 @@ func (s *IntegrationTestSuiteBase) findContainerHealthCheck(
 	containerName string,
 	containerID string) (bool, error) {
 
-	cmd := []string{
-		executor.RuntimeCommand, "inspect", "-f",
-		"'{{ .Config.Healthcheck }}'", containerID,
-	}
-
-	output, err := s.Executor().Exec(cmd...)
+	healthcheck, err := s.Executor().GetContainerHealthCheck(containerName)
 	if err != nil {
 		return false, err
 	}
 
-	outLines := strings.Split(output, "\n")
-	lastLine := outLines[len(outLines)-1]
-
-	// Clearly no HealthCheck section
-	if lastLine == "<nil>" {
-		return false, nil
-	}
-
 	// If doesn't contain an expected command, do not consider it to be a valid
 	// health check
-	if strings.Contains(lastLine, "CMD-SHELL /usr/local/bin/status-check.sh") {
+	if strings.Contains(healthcheck, "CMD-SHELL /usr/local/bin/status-check.sh") {
 		return true, nil
 	} else {
 		return false, nil
@@ -427,17 +409,14 @@ func (s *IntegrationTestSuiteBase) waitForContainerToExit(
 }
 
 func (s *IntegrationTestSuiteBase) execContainer(containerName string, command []string) (string, error) {
-	cmd := []string{executor.RuntimeCommand, "exec", containerName}
-	cmd = append(cmd, command...)
-
-	return s.Executor().Exec(cmd...)
+	return s.Executor().ExecContainer(containerName, command)
 }
 
 func (s *IntegrationTestSuiteBase) execContainerShellScript(containerName string, shell string, script string, args ...string) (string, error) {
-	cmd := []string{executor.RuntimeCommand, "exec", "-i", containerName, shell, "-s"}
+	cmd := []string{shell, "-s"}
 	cmd = append(cmd, args...)
 
-	return s.Executor().ExecWithStdin(script, cmd...)
+	return s.Executor().ExecContainer(containerName, cmd)
 }
 
 func (s *IntegrationTestSuiteBase) cleanupContainers(containers ...string) {
@@ -463,55 +442,26 @@ func (s *IntegrationTestSuiteBase) removeContainers(containers ...string) {
 }
 
 func (s *IntegrationTestSuiteBase) containerLogs(containerName string) (string, error) {
-	return s.Executor().Exec(executor.RuntimeCommand, "logs", containerName)
+	return s.Executor().GetContainerLogs(containerName)
 }
 
 func (s *IntegrationTestSuiteBase) getIPAddress(containerName string) (string, error) {
-	args := []string{
-		executor.RuntimeCommand,
-		"inspect",
-		"--format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'",
-		containerName,
-	}
-
-	stdoutStderr, err := s.Executor().Exec(args...)
-	return strings.Replace(string(stdoutStderr), "'", "", -1), err
+	return s.Executor().GetContainerIP(containerName)
 }
 
 func (s *IntegrationTestSuiteBase) getPort(containerName string) (string, error) {
-	args := []string{
-		executor.RuntimeCommand,
-		"inspect",
-		"--format='{{json .NetworkSettings.Ports}}'",
-		containerName,
-	}
-
-	stdoutStderr, err := s.Executor().Exec(args...)
-	if err != nil {
-		return "", err
-	}
-	rawString := strings.Trim(string(stdoutStderr), "'\n")
-	var portMap map[string]interface{}
-	err = json.Unmarshal([]byte(rawString), &portMap)
-	if err != nil {
-		return "", err
-	}
-
-	for k := range portMap {
-		return strings.Split(k, "/")[0], nil
-	}
-
-	return "", fmt.Errorf("no port mapping found: %v %v", rawString, portMap)
+	return s.Executor().GetContainerPort(containerName)
 }
 
 func (s *IntegrationTestSuiteBase) StartContainerStats() {
 	image := config.Images().QaImageByKey("performance-stats")
-	args := []string{"-v", executor.RuntimeSocket + ":/var/run/docker.sock", image}
-
 	err := s.Executor().PullImage(image)
 	s.Require().NoError(err)
 
-	_, err = s.launchContainer(containerStatsName, args...)
+	_, err = s.startContainer(executor.ContainerStartConfig{
+		Name:   containerStatsName,
+		Image:  image,
+		Mounts: map[string]string{"/var/run/docker.sock": executor.RuntimeSocket}})
 	s.Require().NoError(err)
 }
 

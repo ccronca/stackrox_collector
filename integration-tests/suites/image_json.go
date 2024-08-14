@@ -2,6 +2,7 @@ package suites
 
 import (
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 )
 
 type ImageLabelJSONTestSuite struct {
@@ -20,7 +21,9 @@ func (s *ImageLabelJSONTestSuite) TestRunImageWithJSONLabel() {
 	err := s.Executor().PullImage(image)
 	s.Require().NoError(err)
 
-	containerID, err := s.launchContainer(name, image)
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:  name,
+		Image: image})
 	s.Require().NoError(err)
 
 	_, err = s.waitForContainerToExit(name, containerID, defaultWaitTickSeconds, 0)

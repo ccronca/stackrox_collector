@@ -7,6 +7,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
 )
 
@@ -51,7 +52,9 @@ func (s *ProcfsScraperTestSuite) launchNginx() {
 	s.Require().NoError(err)
 
 	// invokes default nginx
-	containerID, err := s.launchContainer("nginx", image)
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:  "nginx",
+		Image: config.Images().ImageByKey("nginx")})
 	s.Require().NoError(err)
 	s.ServerContainer = common.ContainerShortID(containerID)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 )
 
 const (
@@ -74,7 +75,10 @@ func (s *DuplicateEndpointsTestSuite) TearDownSuite() {
 func (s *DuplicateEndpointsTestSuite) TestDuplicateEndpoints() {
 	image := config.Images().QaImageByKey("qa-socat")
 	// (1) start a process that opens port 80
-	containerID, err := s.launchContainer("socat", image, "TCP-LISTEN:80,fork", "STDOUT")
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:    "socat",
+		Image:   image,
+		Command: []string{"TCP-LISTEN:80,fork", "STDOUT"}})
 	s.Require().NoError(err)
 
 	containerID = common.ContainerShortID(containerID)

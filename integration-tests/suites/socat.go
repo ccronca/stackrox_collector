@@ -9,6 +9,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stackrox/collector/integration-tests/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -48,7 +49,10 @@ func (s *SocatTestSuite) SetupSuite() {
 
 	// the socat container only needs to exist long enough for use to run both
 	// socat commands. 300 seconds should be more than long enough.
-	containerID, err := s.launchContainer("socat", processImage, "TCP-LISTEN:80,fork", "STDOUT")
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:    "socat",
+		Image:   processImage,
+		Command: []string{"TCP-LISTEN:80,fork", "STDOUT"}})
 	s.Require().NoError(err)
 
 	_, err = s.execContainer("socat", []string{"/bin/sh", "-c", "socat TCP-LISTEN:8080,fork STDOUT &"})

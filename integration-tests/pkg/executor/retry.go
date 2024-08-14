@@ -3,7 +3,7 @@ package executor
 import (
 	"time"
 
-	"github.com/stackrox/collector/integration-tests/suites/log"
+	"github.com/stackrox/collector/integration-tests/pkg/log"
 )
 
 const (

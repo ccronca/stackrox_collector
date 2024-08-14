@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,7 +28,11 @@ func (s *PerfEventOpenTestSuite) TearDownSuite() {
 func (s *PerfEventOpenTestSuite) TestReadingTracepoints() {
 	image := config.Images().QaImageByKey("qa-perf-event-open")
 	// attach to sched:sched_process_exit and count events
-	containerID, err := s.launchContainer("perf-event-open", "--privileged", image, "", "STDOUT")
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:       "perf-event-open",
+		Privileged: true,
+		Image:      image,
+		Command:    []string{"", "STDOUT"}})
 	s.Require().NoError(err)
 
 	if finished, _ := s.waitForContainerToExit("perf-event-open", containerID, 5*time.Second, 0); finished {

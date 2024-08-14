@@ -122,6 +122,11 @@ shfmt-format:
 shellcheck-all:
 	./utilities/shellcheck-all/shellcheck-all.sh
 
+.PHONY: k8s-test
+k8s-test:
+	ansible-playbook --tags clean-up -i $(CURDIR)/ansible/k8s_inventory.yml -e @$(CURDIR)/ansible/k8s_vars.yml $(CURDIR)/ansible/k8s-integration-tests.yml
+	ansible-playbook --tags test-only -i $(CURDIR)/ansible/k8s_inventory.yml -e @$(CURDIR)/ansible/k8s_vars.yml $(CURDIR)/ansible/k8s-integration-tests.yml
+
 .PHONY: shellcheck-all-dockerized
 shellcheck-all-dockerized:
 	docker build -t shellcheck-all $(CURDIR)/utilities/shellcheck-all

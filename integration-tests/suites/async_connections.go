@@ -10,6 +10,7 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 )
 
 type AsyncConnectionTestSuite struct {
@@ -51,7 +52,9 @@ func (s *AsyncConnectionTestSuite) SetupSuite() {
 
 	image_store := config.Images()
 
-	containerID, err := s.launchContainer("server", image_store.ImageByKey("nginx"))
+	containerID, err := s.startContainer(executor.ContainerStartConfig{
+		Name:  "server",
+		Image: image_store.ImageByKey("nginx")})
 	s.Require().NoError(err)
 	s.serverContainer = common.ContainerShortID(containerID)
 
@@ -66,7 +69,10 @@ func (s *AsyncConnectionTestSuite) SetupSuite() {
 		target = "10.255.255.1"
 	}
 
-	containerID, err = s.launchContainer("client", image_store.QaImageByKey("qa-alpine-curl"), "curl", "--connect-timeout", "5", fmt.Sprintf("http://%s/", target))
+	containerID, err = s.startContainer(executor.ContainerStartConfig{
+		Name:    "client",
+		Image:   image_store.QaImageByKey("qa-alpine-curl"),
+		Command: []string{"curl", "--connect-timeout", "5", fmt.Sprintf("http://%s/", target)}})
 
 	s.Require().NoError(err)
 	s.clientContainer = common.ContainerShortID(containerID)

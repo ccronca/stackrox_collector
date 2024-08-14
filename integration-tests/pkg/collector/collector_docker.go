@@ -133,51 +133,45 @@ func (c *DockerCollectorManager) getAllContainers() (string, error) {
 	return containers, err
 }
 
-func (c *DockerCollectorManager) launchCollector() error {
-	cmd := []string{executor.RuntimeCommand, "run",
-		"--name", "collector",
-		"--privileged",
-		"--network=host"}
-
-	if !c.bootstrapOnly {
-		cmd = append(cmd, "-d")
-	}
-
-	for dst, src := range c.mounts {
-		mount := src + ":" + dst
-		if src == "" {
-			// allows specification of anonymous volumes
-			mount = dst
-		}
-		cmd = append(cmd, "-v", mount)
-	}
-
-	for k, v := range c.env {
-		cmd = append(cmd, "--env", k+"="+v)
+func (c *DockerCollectorManager) createCollectorStartConfig() (executor.ContainerStartConfig, error) {
+	startConfig := executor.ContainerStartConfig{
+		Name:        "collector",
+		Image:       config.Images().CollectorImage(),
+		Privileged:  true,
+		NetworkMode: "host",
+		Mounts:      c.mounts,
+		Env:         c.env,
 	}
 
 	configJson, err := json.Marshal(c.config)
 	if err != nil {
-		return err
+		return executor.ContainerStartConfig{}, err
 	}
-
-	cmd = append(cmd, "--env", "COLLECTOR_CONFIG="+string(configJson))
-	cmd = append(cmd, config.Images().CollectorImage())
+	startConfig.Env["COLLECTOR_CONFIG"] = string(configJson)
 
 	if c.bootstrapOnly {
-		cmd = append(cmd, "exit", "0")
+		startConfig.Command = []string{"exit", "0"}
 	}
+	return startConfig, nil
+}
 
-	output, err := c.executor.Exec(cmd...)
+func (c *DockerCollectorManager) launchCollector() error {
+	startConfig, err := c.createCollectorStartConfig()
+	if err != nil {
+		return err
+	}
+	output, err := c.executor.StartContainer(startConfig)
 	c.CollectorOutput = output
-
+	if err != nil {
+		return err
+	}
 	outLines := strings.Split(output, "\n")
 	c.containerID = common.ContainerShortID(string(outLines[len(outLines)-1]))
 	return err
 }
 
 func (c *DockerCollectorManager) captureLogs(containerName string) (string, error) {
-	logs, err := c.executor.Exec(executor.RuntimeCommand, "logs", containerName)
+	logs, err := c.executor.GetContainerLogs(containerName)
 	if err != nil {
 		return "", log.Error(executor.RuntimeCommand+" logs error (%v) for container %s\n", err, containerName)
 	}
