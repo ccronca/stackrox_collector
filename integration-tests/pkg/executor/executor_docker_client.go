@@ -120,11 +120,16 @@ func (d *DockerExecutor) StartContainer(startConfig ContainerStartConfig) (strin
 	}
 
 	containerConfig := &container.Config{
-		Image:      startConfig.Image,
-		Env:        convertMapToSlice(startConfig.Env),
-		Cmd:        startConfig.Command,
-		Entrypoint: startConfig.EntryPoint,
-		Volumes:    volumes,
+		Image:   startConfig.Image,
+		Env:     convertMapToSlice(startConfig.Env),
+		Volumes: volumes,
+	}
+
+	if len(startConfig.EntryPoint) > 0 {
+		containerConfig.Entrypoint = startConfig.EntryPoint
+	}
+	if len(startConfig.Command) > 0 {
+		containerConfig.Cmd = startConfig.Command
 	}
 
 	hostConfig := &container.HostConfig{
