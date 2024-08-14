@@ -1,8 +1,9 @@
 package executor
 
 import (
-	"github.com/stackrox/collector/integration-tests/pkg/config"
 	"os/exec"
+
+	"github.com/stackrox/collector/integration-tests/pkg/config"
 )
 
 type ContainerFilter struct {

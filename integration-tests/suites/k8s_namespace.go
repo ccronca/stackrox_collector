@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/stackrox/collector/integration-tests/pkg/mock_sensor"
-	"github.com/stretchr/testify/suite"
 	"io"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/stackrox/collector/integration-tests/pkg/mock_sensor"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/executor"
