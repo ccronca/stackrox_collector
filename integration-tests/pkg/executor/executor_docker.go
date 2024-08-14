@@ -137,13 +137,12 @@ func (e *dockerExecutor) CopyFromHost(src string, dst string) (res string, err e
 func (e *dockerExecutor) PullImage(image string) error {
 	if e.containerExec != nil {
 		return e.containerExec.PullImage(image)
-	} else {
-		_, err := e.ExecWithoutRetry(RuntimeCommand, "image", "inspect", image)
-		if err == nil {
-			return nil
-		}
 	}
-	_, err := e.Exec(RuntimeCommand, "pull", image)
+	_, err := e.ExecWithoutRetry(RuntimeCommand, "image", "inspect", image)
+	if err == nil {
+		return nil
+	}
+	_, err = e.Exec(RuntimeCommand, "pull", image)
 	return err
 }
 
