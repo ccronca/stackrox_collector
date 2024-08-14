@@ -25,21 +25,20 @@ import (
 )
 
 type ContainerRuntimeExecutor interface {
-	ExecContainer(containerName string, command []string) (string, error)
-	KillContainer(containerID string) error
-	StopContainer(containerID string) error
-	RemoveContainer(containerID string) error
-	PullImage(image string) error
-	GetContainerLogs(containerID string) (string, error)
-	CheckImageExists(image string) (bool, error)
-	GetContainerPort(containerID string) (string, error)
-	GetContainerIP(containerID string) (string, error)
+	CheckContainerExists(filter ContainerFilter) (bool, error)
 	CheckContainerRunning(containerID string) (bool, error)
-	CheckContainerExists(containerID string) (bool, error)
+	ExecContainer(containerName string, command []string) (string, error)
+	GetContainerExitCode(filter ContainerFilter) (int, error)
 	GetContainerHealthCheck(containerID string) (string, error)
-	GetContainerExitCode(containerID string) (int, error)
-	StartContainer(config ContainerStartConfig) (string, error)
+	GetContainerIP(containerID string) (string, error)
+	GetContainerLogs(containerID string) (string, error)
+	GetContainerPort(containerID string) (string, error)
 	IsContainerFoundFiltered(containerID, filter string) (bool, error)
+	KillContainer(name string) (string, error)
+	PullImage(image string) error
+	RemoveContainer(filter ContainerFilter) error
+	StartContainer(config ContainerStartConfig) (string, error)
+	StopContainer(containerID string) error
 }
 
 var (
@@ -67,14 +66,15 @@ func NewDockerExecutor() (*DockerExecutor, error) {
 		return nil, err
 	}
 
+	b64auth := ""
 	_, err = cli.RegistryLogin(context.Background(), *auth)
 	if err != nil {
-		return nil, err
-	}
-
-	b64auth, err := registry.EncodeAuthConfig(*auth)
-	if err != nil {
-		return nil, err
+		log.Info("Error logging into registry: %s", err)
+	} else {
+		b64auth, err = registry.EncodeAuthConfig(*auth)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &DockerExecutor{
@@ -250,7 +250,7 @@ func (d *DockerExecutor) GetContainerLogs(containerID string) (string, error) {
 	return sbStdOut.String(), nil
 }
 
-func (d *DockerExecutor) KillContainer(containerID string) error {
+func (d *DockerExecutor) KillContainer(containerID string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -258,11 +258,11 @@ func (d *DockerExecutor) KillContainer(containerID string) error {
 	defer cancel()
 	err := d.client.ContainerKill(timeoutContext, containerID, "KILL")
 	if err != nil {
-		return fmt.Errorf("error killing container: %w", err)
+		return "", fmt.Errorf("error killing container: %w", err)
 	}
 
 	log.Info("[dockerclient] kill %s\n", containerID)
-	return nil
+	return "", nil
 }
 
 func (d *DockerExecutor) StopContainer(containerID string) error {
@@ -283,7 +283,7 @@ func (d *DockerExecutor) StopContainer(containerID string) error {
 	return nil
 }
 
-func (d *DockerExecutor) RemoveContainer(containerID string) error {
+func (d *DockerExecutor) RemoveContainer(cf ContainerFilter) error {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -294,12 +294,12 @@ func (d *DockerExecutor) RemoveContainer(containerID string) error {
 	timeoutDuration := 10 * time.Second
 	timeoutContext, cancel := context.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
-	err := d.client.ContainerRemove(timeoutContext, containerID, removeOptions)
+	err := d.client.ContainerRemove(timeoutContext, cf.Name, removeOptions)
 	if err != nil {
 		return fmt.Errorf("error removing container: %w", err)
 	}
 
-	log.Info("[dockerclient] remove %s\n", containerID)
+	log.Info("[dockerclient] remove %s\n", cf.Name)
 	return nil
 }
 
@@ -314,12 +314,12 @@ func (d *DockerExecutor) inspectContainer(containerID string) (types.ContainerJS
 	return containerJSON, nil
 }
 
-func (d *DockerExecutor) GetContainerExitCode(containerID string) (int, error) {
-	container, err := d.inspectContainer(containerID)
+func (d *DockerExecutor) GetContainerExitCode(cf ContainerFilter) (int, error) {
+	container, err := d.inspectContainer(cf.Name)
 	if err != nil {
 		return -1, err
 	}
-	log.Info("[dockerclient] %s exitcode=%s\n", containerID, container.State.ExitCode)
+	log.Info("[dockerclient] %s exitcode=%s\n", cf.Name, container.State.ExitCode)
 	return container.State.ExitCode, nil
 }
 
@@ -371,30 +371,15 @@ func (d *DockerExecutor) CheckContainerRunning(containerID string) (bool, error)
 	return containerJSON.State.Running, nil
 }
 
-func (d *DockerExecutor) CheckContainerExists(containerID string) (bool, error) {
-	_, err := d.inspectContainer(containerID)
+func (d *DockerExecutor) CheckContainerExists(cf ContainerFilter) (bool, error) {
+	_, err := d.inspectContainer(cf.Name)
 	if err != nil {
-		log.Info("[dockerclient] %s does not exist\n", containerID)
+		log.Info("[dockerclient] %s does not exist\n", cf.Name)
 		return false, err
 	}
 
-	log.Info("[dockerclient] %s exists\n", containerID)
+	log.Info("[dockerclient] %s exists\n", cf.Name)
 	return true, nil
-}
-
-func (d *DockerExecutor) CheckImageExists(imageName string) (bool, error) {
-	ctx := context.Background()
-	defer d.client.Close()
-
-	_, _, err := d.client.ImageInspectWithRaw(ctx, imageName)
-	log.Info("[dockerclient] %s exists (%t)\n", imageName, err == nil)
-	if err == nil {
-		return true, nil
-	} else if client.IsErrNotFound(err) {
-		return false, nil
-	} else {
-		return false, fmt.Errorf("error inspecting image: %w", err)
-	}
 }
 
 func findAuth() (*registry.AuthConfig, error) {

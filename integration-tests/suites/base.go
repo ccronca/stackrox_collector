@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -175,7 +176,7 @@ func (s *IntegrationTestSuiteBase) RegisterCleanup(containers ...string) {
 
 		// StopCollector is safe when collector isn't running, but the container must exist.
 		// This will ensure that logs are still written even when test setup fails
-		exists, _ := s.Executor().ContainerExists(executor.ContainerFilter{Name: "collector"})
+		exists, _ := s.Executor().CheckContainerExists(executor.ContainerFilter{Name: "collector"})
 		if exists {
 			s.StopCollector()
 		}
@@ -310,16 +311,6 @@ func (s *IntegrationTestSuiteBase) GetLogLines(containerName string) []string {
 
 func (s *IntegrationTestSuiteBase) startContainer(startConfig executor.ContainerStartConfig) (string, error) {
 	return s.Executor().StartContainer(startConfig)
-}
-
-func (s *IntegrationTestSuiteBase) launchContainer(name string, args ...string) (string, error) {
-	cmd := []string{executor.RuntimeCommand, "run", "-d", "--name", name}
-	cmd = append(cmd, args...)
-
-	output, err := s.Executor().Exec(cmd...)
-
-	outLines := strings.Split(output, "\n")
-	return outLines[len(outLines)-1], err
 }
 
 // Wait for a container to become a certain status.
@@ -465,6 +456,16 @@ func (s *IntegrationTestSuiteBase) StartContainerStats() {
 	s.Require().NoError(err)
 }
 
+func (s *IntegrationTestSuiteBase) execShellCommand(command string) error {
+	log.Info("[exec] %s", command)
+	cmd := exec.Command("sh", "-c", command)
+	_, err := cmd.Output()
+	if err != nil {
+		log.Info("[exec]: %v", err)
+	}
+	return err
+}
+
 func (s *IntegrationTestSuiteBase) waitForFileToBeDeleted(file string) error {
 	timer := time.After(10 * time.Second)
 	ticker := time.NewTicker(time.Second)
@@ -475,16 +476,27 @@ func (s *IntegrationTestSuiteBase) waitForFileToBeDeleted(file string) error {
 		case <-timer:
 			return fmt.Errorf("Timed out waiting for %s to be deleted", file)
 		case <-ticker.C:
-			if config.HostInfo().IsLocal() {
+			if config.HostInfo().IsLocal() || config.HostInfo().Kind == "api" {
 				if _, err := os.Stat(file); os.IsNotExist(err) {
 					return nil
 				}
 			} else {
-				output, _ := s.Executor().Exec("stat", file)
-				if strings.Contains(output, "No such file or directory") {
-					return nil
-				}
+				return errors.New("waitForFileToBeDeleted not supported on non-local hosts")
 			}
 		}
 	}
+}
+
+func (s *IntegrationTestSuiteBase) updatePlopActionFile(action string, file string, waitForDeletion bool) {
+	cmd := ""
+	if len(action) > 0 {
+		cmd = fmt.Sprintf("echo %s > %s", action, file)
+	} else {
+		cmd = fmt.Sprintf("rm " + file + " || true")
+	}
+	err := s.execShellCommand(cmd)
+	if err == nil && waitForDeletion {
+		err = s.waitForFileToBeDeleted(file)
+	}
+	s.Require().NoError(err)
 }

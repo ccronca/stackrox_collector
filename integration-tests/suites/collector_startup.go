@@ -14,7 +14,7 @@ func (s *CollectorStartupTestSuite) TearDownSuite() {
 }
 
 func (s *CollectorStartupTestSuite) TestCollectorRunning() {
-	running, err := s.executor.IsContainerRunning("collector")
+	running, err := s.executor.CheckContainerRunning("collector")
 	s.Require().NoError(err)
 	s.Require().True(running)
 }

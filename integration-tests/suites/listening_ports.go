@@ -45,24 +45,14 @@ func (s *ProcessListeningOnPortTestSuite) SetupSuite() {
 
 	actionFile := "/tmp/action_file.txt"
 
-	_, err = s.executor.Exec("sh", "-c", "rm "+actionFile+" || true")
-
-	_, err = s.executor.Exec("sh", "-c", "echo open 8081 > "+actionFile)
-	err = s.waitForFileToBeDeleted(actionFile)
-	s.Require().NoError(err)
-
-	_, err = s.executor.Exec("sh", "-c", "echo open 9091 > "+actionFile)
-	err = s.waitForFileToBeDeleted(actionFile)
-	s.Require().NoError(err)
+	s.updatePlopActionFile("", actionFile, false)
+	s.updatePlopActionFile("open 8081", actionFile, true)
+	s.updatePlopActionFile("open 9091", actionFile, true)
 
 	time.Sleep(6 * time.Second)
 
-	_, err = s.executor.Exec("sh", "-c", "echo close 8081 > "+actionFile)
-	err = s.waitForFileToBeDeleted(actionFile)
-	s.Require().NoError(err)
-	_, err = s.executor.Exec("sh", "-c", "echo close 9091 > "+actionFile)
-	err = s.waitForFileToBeDeleted(actionFile)
-	s.Require().NoError(err)
+	s.updatePlopActionFile("close 8081", actionFile, true)
+	s.updatePlopActionFile("close 9091", actionFile, true)
 }
 
 func (s *ProcessListeningOnPortTestSuite) TearDownSuite() {

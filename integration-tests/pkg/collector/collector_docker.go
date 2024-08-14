@@ -96,7 +96,7 @@ func (c *DockerCollectorManager) TearDown() error {
 	if !isRunning {
 		c.captureLogs("collector")
 		// Check if collector container segfaulted or exited with error
-		exitCode, err := c.executor.ExitCode(executor.ContainerFilter{
+		exitCode, err := c.executor.GetContainerExitCode(executor.ContainerFilter{
 			Name: "collector",
 		})
 		if err != nil {
@@ -115,22 +115,7 @@ func (c *DockerCollectorManager) TearDown() error {
 }
 
 func (c *DockerCollectorManager) IsRunning() (bool, error) {
-	return c.executor.IsContainerRunning("collector")
-}
-
-// These two methods might be useful in the future. I used them for debugging
-func (c *DockerCollectorManager) getContainers() (string, error) {
-	cmd := []string{executor.RuntimeCommand, "container", "ps"}
-	containers, err := c.executor.Exec(cmd...)
-
-	return containers, err
-}
-
-func (c *DockerCollectorManager) getAllContainers() (string, error) {
-	cmd := []string{executor.RuntimeCommand, "container", "ps", "-a"}
-	containers, err := c.executor.Exec(cmd...)
-
-	return containers, err
+	return c.executor.CheckContainerRunning("collector")
 }
 
 func (c *DockerCollectorManager) createCollectorStartConfig() (executor.ContainerStartConfig, error) {
@@ -188,7 +173,7 @@ func (c *DockerCollectorManager) captureLogs(containerName string) (string, erro
 
 func (c *DockerCollectorManager) killContainer(name string) error {
 	_, err1 := c.executor.KillContainer(name)
-	_, err2 := c.executor.RemoveContainer(executor.ContainerFilter{
+	err2 := c.executor.RemoveContainer(executor.ContainerFilter{
 		Name: name,
 	})
 
@@ -204,7 +189,7 @@ func (c *DockerCollectorManager) killContainer(name string) error {
 }
 
 func (c *DockerCollectorManager) stopContainer(name string) error {
-	_, err := c.executor.StopContainer(name)
+	err := c.executor.StopContainer(name)
 	return err
 }
 
