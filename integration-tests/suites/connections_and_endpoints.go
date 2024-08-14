@@ -52,7 +52,7 @@ func (s *ConnectionsAndEndpointsTestSuite) SetupSuite() {
 
 	longContainerID, err := s.startContainer(executor.ContainerStartConfig{
 		Name:       serverName,
-		EntryPoint: []string{"/bin/sh"},
+		Entrypoint: []string{"/bin/sh"},
 		Image:      socatImage,
 		Command:    []string{"-c", "/bin/sleep 300"}})
 	s.Server.ContainerID = common.ContainerShortID(longContainerID)
@@ -60,7 +60,7 @@ func (s *ConnectionsAndEndpointsTestSuite) SetupSuite() {
 
 	longContainerID, err = s.startContainer(executor.ContainerStartConfig{
 		Name:       clientName,
-		EntryPoint: []string{"/bin/sh"},
+		Entrypoint: []string{"/bin/sh"},
 		Image:      socatImage,
 		Command:    []string{"-c", "/bin/sleep 300"}})
 	s.Require().NoError(err)

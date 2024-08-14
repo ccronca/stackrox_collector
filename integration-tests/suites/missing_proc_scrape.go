@@ -45,13 +45,13 @@ func (s *MissingProcScrapeTestSuite) createFakeProcDir() {
 		s.Require().NoError(err, "Failed to write to environ")
 	}
 
-	err = ioutil.WriteFile(filepath.Join(fakeProcDir, "stat"), []byte("btime 1695972922\n"), 0644)
+	err = os.WriteFile(filepath.Join(fakeProcDir, "stat"), []byte("btime 1695972922\n"), 0644)
 	s.Require().NoError(err, "Failed to write to stat")
 
 	err = os.MkdirAll(filepath.Join(fakeProcDir, "1"), os.ModePerm)
 	s.Require().NoError(err, "Failed to create /proc/1")
 
-	err = ioutil.WriteFile(filepath.Join(fakeProcDir, "1", "mounts"), []byte("cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot 0 0\n"), 0644)
+	err = os.WriteFile(filepath.Join(fakeProcDir, "1", "mounts"), []byte("cgroup2 /sys/fs/cgroup cgroup2 rw,seclabel,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot 0 0\n"), 0644)
 	s.Require().NoError(err, "Failed to write to /proc/1/mounts")
 }
 

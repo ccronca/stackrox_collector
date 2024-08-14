@@ -40,7 +40,7 @@ func newDockerExecutor() (*dockerExecutor, error) {
 	if config.HostInfo().Kind == "api" {
 		containerExec, err := NewDockerExecutor()
 		if err != nil {
-			return nil, errors.New("Failed to create docker client executor")
+			return nil, errors.Wrap(err, "failed to create docker client executor")
 		}
 		return &dockerExecutor{
 			builder:       newLocalCommandBuilder(),
@@ -136,10 +136,7 @@ func (e *dockerExecutor) CopyFromHost(src string, dst string) (res string, err e
 
 func (e *dockerExecutor) PullImage(image string) error {
 	if e.containerExec != nil {
-		exists, err := e.containerExec.CheckImageExists(image)
-		if exists {
-			return err
-		}
+		return e.containerExec.PullImage(image)
 	} else {
 		_, err := e.ExecWithoutRetry(RuntimeCommand, "image", "inspect", image)
 		if err == nil {
@@ -278,8 +275,8 @@ func (e *dockerExecutor) StartContainer(startConfig ContainerStartConfig) (strin
 		cmd = append(cmd, "-e", envFlag)
 	}
 
-	for _, e := range startConfig.EntryPoint {
-		cmd = append(cmd, "--entrypoint", e)
+	for _, ep := range startConfig.Entrypoint {
+		cmd = append(cmd, "--entrypoint", ep)
 	}
 
 	cmd = append(cmd, startConfig.Image)

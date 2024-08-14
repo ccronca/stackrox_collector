@@ -39,7 +39,7 @@ func (s *ProcessesAndEndpointsTestSuite) SetupSuite() {
 	containerID, err := s.startContainer(executor.ContainerStartConfig{
 		Name:       s.ContainerName,
 		Image:      config.Images().QaImageByKey("qa-plop"),
-		EntryPoint: []string{s.Executable},
+		Entrypoint: []string{s.Executable},
 		Command:    s.Args})
 
 	s.Require().NoError(err)

@@ -2,15 +2,13 @@ package suites
 
 import (
 	"fmt"
-	"strconv"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/stackrox/collector/integration-tests/pkg/collector"
 	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
 	"github.com/stackrox/collector/integration-tests/pkg/executor"
+	"github.com/stretchr/testify/assert"
+	"strconv"
+	"time"
 )
 
 type AsyncConnectionTestSuite struct {

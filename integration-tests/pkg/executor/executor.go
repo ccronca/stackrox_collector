@@ -40,7 +40,7 @@ type ContainerStartConfig struct {
 	Mounts      map[string]string
 	Env         map[string]string
 	Command     []string
-	EntryPoint  []string
+	Entrypoint  []string
 }
 
 type CommandBuilder interface {
