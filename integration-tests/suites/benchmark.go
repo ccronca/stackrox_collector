@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/stackrox/collector/integration-tests/pkg/common"
 	"github.com/stackrox/collector/integration-tests/pkg/config"
+	"github.com/stackrox/collector/integration-tests/pkg/executor"
 )
 
 type BenchmarkBaselineTestSuite struct {
@@ -66,21 +66,28 @@ func (b *BenchmarkTestSuiteBase) StartPerfTools() {
 func (b *BenchmarkTestSuiteBase) StartPerfContainer(name string, image string, args string) {
 	argsList, err := shlex.Split(args)
 	require.NoError(b.T(), err)
-	b.startContainer(name, image, common.QuoteArgs(argsList)...)
+	b.startContainer(executor.ContainerStartConfig{
+		Name:    name,
+		Image:   image,
+		Command: argsList,
+	})
 }
 
 func (b *BenchmarkTestSuiteBase) RunInitContainer() {
 	init_image := config.Images().QaImageByKey("performance-init")
-	cmd := []string{
-		"-v", "/lib/modules:/lib/modules",
-		"-v", "/etc/os-release:/etc/os-release",
-		"-v", "/etc/lsb-release:/etc/lsb-release",
-		"-v", "/usr/src:/usr/src",
-		"-v", "/boot:/boot",
-		init_image,
+	mounts := map[string]string{
+		"/lib/modules":     "/lib/modules",
+		"/etc/os-release":  "/etc/os-release",
+		"/etc/lsb-release": "/etc/lsb-release",
+		"/usr/src":         "/usr/src",
+		"/boot":            "/boot",
 	}
 
-	containerID, err := b.launchContainer("host-init", cmd...)
+	containerID, err := b.Executor().StartContainer(executor.ContainerStartConfig{
+		Name:   "host-init",
+		Image:  init_image,
+		Mounts: mounts,
+	})
 	require.NoError(b.T(), err)
 
 	if finished, _ := b.waitForContainerToExit("host-init", containerID, 5*time.Second, 0); !finished {
@@ -93,21 +100,17 @@ func (b *BenchmarkTestSuiteBase) RunInitContainer() {
 	b.cleanupContainers(containerID)
 }
 
-func (b *BenchmarkTestSuiteBase) startContainer(name string, image string, args ...string) {
-	cmd := []string{
-		"--privileged",
-		"-v", "/sys:/sys",
-		"-v", "/usr/src:/usr/src",
-		"-v", "/lib/modules:/lib/modules",
-		// by mounting /tmp we can allow tools to write stats/logs to a local path
-		// for later processing
-		"-v", "/tmp:/tmp",
-		image,
-	}
+func (b *BenchmarkTestSuiteBase) startContainer(config executor.ContainerStartConfig) {
 
-	cmd = append(cmd, args...)
+	config.Mounts["/sys"] = "/sys"
+	config.Mounts["/usr/src"] = "/usr/src"
+	config.Mounts["/lib/modules"] = "/lib/modules"
+	// by mounting /tmp we can allow tools to write stats/logs to a local path
+	// for later processing
+	config.Mounts["/tmp"] = "/tmp"
+	config.Privileged = true
 
-	containerID, err := b.launchContainer(name, cmd...)
+	containerID, err := b.Executor().StartContainer(config)
 	require.NoError(b.T(), err)
 
 	b.perfContainers = append(b.perfContainers, containerID)
@@ -159,9 +162,12 @@ func (s *BenchmarkTestSuiteBase) SpinBerserker(workload string) (string, error) 
 	}
 
 	configFile := fmt.Sprintf("/etc/berserker/%s/workload.toml", workload)
-	benchmarkArgs := []string{benchmarkImage, configFile}
 
-	containerID, err := s.launchContainer(benchmarkName, benchmarkArgs...)
+	containerID, err := s.Executor().StartContainer(executor.ContainerStartConfig{
+		Name:    benchmarkName,
+		Image:   benchmarkImage,
+		Command: []string{configFile},
+	})
 	if err != nil {
 		return "", err
 	}

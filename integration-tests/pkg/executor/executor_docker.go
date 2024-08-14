@@ -36,14 +36,20 @@ func newDockerExecutor() (*dockerExecutor, error) {
 	// While this function can't fail, to conform to the
 	// same construction API as other executors, we keep the
 	// error return value.
-	containerExec, err := NewDockerExecutor()
-	if err != nil {
-		return nil, errors.New("Failed to create docker client executor")
+
+	if config.HostInfo().Kind == "api" {
+		containerExec, err := NewDockerExecutor()
+		if err != nil {
+			return nil, errors.New("Failed to create docker client executor")
+		}
+		return &dockerExecutor{
+			builder:       newLocalCommandBuilder(),
+			containerExec: containerExec}, nil
 	}
 	return &dockerExecutor{
-		builder:       newLocalCommandBuilder(),
-		containerExec: containerExec,
+		builder: newLocalCommandBuilder(),
 	}, nil
+
 }
 
 // Exec executes the provided command with retries on non-zero error from the command.
