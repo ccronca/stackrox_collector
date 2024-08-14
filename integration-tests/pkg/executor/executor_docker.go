@@ -141,7 +141,7 @@ func (e *dockerExecutor) PullImage(image string) error {
 			return err
 		}
 	} else {
-		_, err := e.Exec(RuntimeCommand, "image", "inspect", image)
+		_, err := e.ExecWithoutRetry(RuntimeCommand, "image", "inspect", image)
 		if err == nil {
 			return nil
 		}
