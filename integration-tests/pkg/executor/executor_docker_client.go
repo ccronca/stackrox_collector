@@ -248,8 +248,8 @@ func (d *DockerAPIExecutor) ExecContainer(containerName string, command []string
 	}
 	defer attachResp.Close()
 
-	var outBuf bytes.Buffer
-	_, err = io.Copy(&outBuf, attachResp.Reader)
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
 	if err != nil {
 		return "", fmt.Errorf("error reading exec output: %w", err)
 	}
@@ -258,10 +258,9 @@ func (d *DockerAPIExecutor) ExecContainer(containerName string, command []string
 	if err != nil {
 		return "", fmt.Errorf("error inspecting exec: %w", err)
 	}
-
 	log.Info("[docker-api] exec %s %v (exitCode=%d, outBytes=%d)\n",
-		containerName, command, execInspect.ExitCode, outBuf.Len())
-	return outBuf.String(), nil
+		containerName, command, execInspect.ExitCode, stdoutBuf.Len())
+	return stdoutBuf.String(), nil
 }
 
 func (d *DockerAPIExecutor) GetContainerLogs(containerID string) (string, error) {
