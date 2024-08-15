@@ -207,10 +207,18 @@ func (d *DockerAPIExecutor) StartContainer(startConfig ContainerStartConfig) (st
 
 	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, startConfig.Name)
 	if err != nil {
+		// debug
+		log.Info("[docker-api] container create error %s with %s (%v)\n", startConfig.Name, startConfig.Image, err)
+		log.Info("containerConfig: %+v", containerConfig)
+		log.Info("hostConfig: %+v", hostConfig)
 		return "", err
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		// debug
+		log.Info("[docker-api] container start error %s with %s (%v)\n", startConfig.Name, startConfig.Image, err)
+		log.Info("containerConfig: %+v", containerConfig)
+		log.Info("hostConfig: %+v", hostConfig)
 		return "", err
 	}
 

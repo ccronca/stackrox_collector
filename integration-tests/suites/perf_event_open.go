@@ -3,6 +3,7 @@ package suites
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stackrox/collector/integration-tests/pkg/config"
@@ -42,7 +43,7 @@ func (s *PerfEventOpenTestSuite) TestReadingTracepoints() {
 			assert.FailNow(s.T(), "Failed to initialize host for performance testing")
 		}
 
-		count, err := strconv.Atoi(logs)
+		count, err := strconv.Atoi(strings.TrimSpace(logs))
 		if err != nil {
 			fmt.Println(logs)
 			assert.FailNow(s.T(), "Cannot convert result to the integer type")
