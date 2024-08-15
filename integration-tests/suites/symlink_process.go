@@ -37,9 +37,11 @@ func (s *SymbolicLinkProcessTestSuite) SetupSuite() {
 	s.updatePlopActionFile("", actionFile, false)
 
 	containerID, err := s.startContainer(executor.ContainerStartConfig{
-		Name:   "process-ports",
-		Image:  processImage,
-		Mounts: map[string]string{"/tmp": "/tmp"}})
+		Name:       "process-ports",
+		Image:      processImage,
+		Mounts:     map[string]string{"/tmp": "/tmp"},
+		Entrypoint: []string{"./plop"},
+		Command:    []string{actionFile}})
 	s.Require().NoError(err)
 
 	s.serverContainer = common.ContainerShortID(containerID)
