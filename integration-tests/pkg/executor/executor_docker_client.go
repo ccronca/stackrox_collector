@@ -294,7 +294,7 @@ func (d *DockerAPIExecutor) KillContainer(containerID string) (string, error) {
 		return "", fmt.Errorf("error killing container: %w", err)
 	}
 
-	log.Info("[docker-api] kill %s\n", containerID)
+	log.Debug("[docker-api] kill %s\n", containerID)
 	return "", nil
 }
 
@@ -312,7 +312,7 @@ func (d *DockerAPIExecutor) StopContainer(containerID string) error {
 	if err != nil {
 		return fmt.Errorf("error stopping container: %w", err)
 	}
-	log.Info("[docker-api] stop %s\n", containerID)
+	log.Debug("[docker-api] stop %s\n", containerID)
 	return nil
 }
 
@@ -332,7 +332,7 @@ func (d *DockerAPIExecutor) RemoveContainer(cf ContainerFilter) error {
 		return fmt.Errorf("error removing container: %w", err)
 	}
 
-	log.Info("[docker-api] remove %s\n", cf.Name)
+	log.Debug("[docker-api] remove %s\n", cf.Name)
 	return nil
 }
 

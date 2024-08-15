@@ -48,7 +48,6 @@ func NewDockerCollectorManager(e executor.Executor, name string) *DockerCollecto
 		"/host/etc:ro":              "/etc",
 		"/host/usr/lib:ro":          "/usr/lib",
 		"/host/sys/kernel/debug:ro": "/sys/kernel/debug",
-		"/tmp":                      "/tmp",
 	}
 
 	return &DockerCollectorManager{
