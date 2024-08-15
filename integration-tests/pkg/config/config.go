@@ -25,7 +25,7 @@ const (
 	// argument. It is kept the same here to avoid changing behavior by default.
 	defaultStopTimeoutSeconds = "10"
 
-	defaultContainerExecutor = DockerAPIContainerExecutor
+	defaultContainerExecutor = ProcessContainerExecutor
 )
 
 var (

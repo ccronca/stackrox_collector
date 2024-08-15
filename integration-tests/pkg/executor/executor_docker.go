@@ -164,7 +164,7 @@ func (e *dockerExecutor) StopContainer(name string) (string, error) {
 }
 
 func (e *dockerExecutor) ExecContainer(containerName string, command []string) (string, error) {
-	cmd := []string{RuntimeCommand, "Exec", containerName}
+	cmd := []string{RuntimeCommand, "exec", containerName}
 	cmd = append(cmd, command...)
 	return e.Exec(cmd...)
 }
@@ -211,6 +211,16 @@ func (e *dockerExecutor) StartContainer(startConfig ContainerStartConfig) (strin
 	}
 
 	containerID := strings.TrimSpace(string(output))
+
+	if startConfig.Name == "collector" {
+		var inspectCmd []string
+		inspectCmd = append(inspectCmd, RuntimeCommand, "inspect", startConfig.Name)
+		output, err = e.Exec(inspectCmd...)
+		log.Info("%s inspect %s -> %s", RuntimeCommand, startConfig.Name, output)
+		if err != nil {
+			return "", fmt.Errorf("error running docker inspect: %s\nOutput: %s", err, output)
+		}
+	}
 
 	return containerID, nil
 }
