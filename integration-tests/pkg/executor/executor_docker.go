@@ -40,7 +40,7 @@ func newLocalCommandBuilder() CommandBuilder {
 	return &localCommandBuilder{}
 }
 
-func newDockerExecutor() (*containerProcessExecutor, error) {
+func newContainerProcessExecutor() (*containerProcessExecutor, error) {
 	// While this function can't fail, to conform to the
 	// same construction API as other executors, we keep the
 	// error return value.

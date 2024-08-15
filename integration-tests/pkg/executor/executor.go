@@ -45,8 +45,8 @@ type CommandBuilder interface {
 }
 
 func New() (Executor, error) {
-	if config.HostInfo().Kind == "api" {
-		return NewDockerExecutor()
+	if config.ContainerExecutor() == config.DockerAPIContainerExecutor {
+		return newDockerAPIExecutor()
 	}
-	return newDockerExecutor()
+	return newContainerProcessExecutor()
 }

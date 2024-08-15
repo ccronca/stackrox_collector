@@ -6,6 +6,9 @@ import (
 )
 
 const (
+	DockerAPIContainerExecutor = "docker-api"
+	ProcessContainerExecutor   = "process"
+
 	CollectionMethodEBPF    = "ebpf"
 	CollectionMethodCoreBPF = "core-bpf"
 
@@ -21,12 +24,15 @@ const (
 	// 10 seconds is the default for docker stop when not providing a timeout
 	// argument. It is kept the same here to avoid changing behavior by default.
 	defaultStopTimeoutSeconds = "10"
+
+	defaultContainerExecutor = DockerAPIContainerExecutor
 )
 
 var (
-	qa_tag            = ReadEnvVar(envQATag)
-	collection_method = ReadEnvVarWithDefault(envCollectionMethod, CollectionMethodCoreBPF)
-	stop_timeout      = ReadEnvVarWithDefault(envStopTimeout, defaultStopTimeoutSeconds)
+	qa_tag             = ReadEnvVar(envQATag)
+	collection_method  = ReadEnvVarWithDefault(envCollectionMethod, CollectionMethodCoreBPF)
+	stop_timeout       = ReadEnvVarWithDefault(envStopTimeout, defaultStopTimeoutSeconds)
+	container_executor = ReadEnvVarWithDefault(envContainerExecutor, defaultContainerExecutor)
 
 	image_store       *ImageStore
 	collector_options *CollectorOptions
@@ -113,6 +119,8 @@ func CollectionMethod() string {
 func StopTimeout() string {
 	return stop_timeout
 }
+
+func ContainerExecutor() string { return container_executor }
 
 func HostInfo() *Host {
 	if host_options == nil {

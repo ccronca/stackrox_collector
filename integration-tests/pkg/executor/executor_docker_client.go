@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -24,23 +23,6 @@ import (
 	"github.com/stackrox/collector/integration-tests/pkg/log"
 )
 
-type ContainerRuntimeExecutor interface {
-	CheckContainerExists(filter ContainerFilter) (bool, error)
-	CheckContainerRunning(containerID string) (bool, error)
-	ExecContainer(containerName string, command []string) (string, error)
-	GetContainerExitCode(filter ContainerFilter) (int, error)
-	GetContainerHealthCheck(containerID string) (string, error)
-	GetContainerIP(containerID string) (string, error)
-	GetContainerLogs(containerID string) (string, error)
-	GetContainerPort(containerID string) (string, error)
-	IsContainerFoundFiltered(containerID, filter string) (bool, error)
-	KillContainer(name string) (string, error)
-	PullImage(image string) error
-	RemoveContainer(filter ContainerFilter) error
-	StartContainer(config ContainerStartConfig) (string, error)
-	StopContainer(containerID string) error
-}
-
 var (
 	authFiles = []string{
 		"$HOME/.config/containers/auth.json",
@@ -50,18 +32,62 @@ var (
 
 const MAIN_REGISTRY = "quay.io"
 
-type DockerExecutor struct {
+type DockerAPIExecutor struct {
 	client     *client.Client
 	authConfig string
 }
 
-func NewDockerExecutor() (*DockerExecutor, error) {
+func readRegistryAuthFiles() (*registry.AuthConfig, error) {
+	for _, path := range authFiles {
+		expanded := os.ExpandEnv(path)
+
+		file, err := os.Open(expanded)
+		if err != nil {
+			continue
+		}
+		defer file.Close()
+
+		// if we find a file, then we should use it
+		// so propagate errors up the stack after this point
+		bytes, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+
+		var auths struct {
+			Auths map[string]registry.AuthConfig
+		}
+
+		err = json.Unmarshal(bytes, &auths)
+		if err != nil {
+			return nil, err
+		}
+
+		main_auth := auths.Auths[MAIN_REGISTRY]
+		main_auth.ServerAddress = MAIN_REGISTRY
+
+		if main_auth.Username == "" && main_auth.Auth != "" {
+			auth_plain, err := base64.StdEncoding.DecodeString(main_auth.Auth)
+			if err != nil {
+				return nil, err
+			}
+			split := strings.Split(string(auth_plain), ":")
+			main_auth.Username = split[0]
+			main_auth.Password = split[1]
+		}
+		return &main_auth, nil
+	}
+
+	return nil, fmt.Errorf("Unable to find any auth json files")
+}
+
+func newDockerAPIExecutor() (*DockerAPIExecutor, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	auth, err := findAuth()
+	auth, err := readRegistryAuthFiles()
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +103,7 @@ func NewDockerExecutor() (*DockerExecutor, error) {
 		}
 	}
 
-	return &DockerExecutor{
+	return &DockerAPIExecutor{
 		client:     cli,
 		authConfig: b64auth,
 	}, nil
@@ -91,7 +117,7 @@ func convertMapToSlice(env map[string]string) []string {
 	return result
 }
 
-func (d *DockerExecutor) IsContainerFoundFiltered(containerID, filter string) (bool, error) {
+func (d *DockerAPIExecutor) IsContainerFoundFiltered(containerID, filter string) (bool, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -122,12 +148,12 @@ func (d *DockerExecutor) IsContainerFoundFiltered(containerID, filter string) (b
 			found = true
 		}
 	}
-	log.Info("[dockerclient] checked %s for filter %s (%t)\n", common.ContainerShortID(containerID), filter, found)
+	log.Info("[docker-api] checked %s for filter %s (%t)\n", common.ContainerShortID(containerID), filter, found)
 
 	return found, nil
 }
 
-func (d *DockerExecutor) GetContainerHealthCheck(containerID string) (string, error) {
+func (d *DockerAPIExecutor) GetContainerHealthCheck(containerID string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -140,11 +166,11 @@ func (d *DockerExecutor) GetContainerHealthCheck(containerID string) (string, er
 		return "", fmt.Errorf("container %s does not have a health check", containerID)
 	}
 
-	log.Info("[dockerclient] %s has healthcheck: %s\n", containerID, strings.Join(container.Config.Healthcheck.Test, " "))
+	log.Info("[docker-api] %s has healthcheck: %s\n", containerID, strings.Join(container.Config.Healthcheck.Test, " "))
 	return strings.Join(container.Config.Healthcheck.Test, " "), nil
 }
 
-func (d *DockerExecutor) StartContainer(startConfig ContainerStartConfig) (string, error) {
+func (d *DockerAPIExecutor) StartContainer(startConfig ContainerStartConfig) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -188,12 +214,12 @@ func (d *DockerExecutor) StartContainer(startConfig ContainerStartConfig) (strin
 		return "", err
 	}
 
-	log.Info("[dockerclient] start %s with %s (%s)\n",
+	log.Info("[docker-api] start %s with %s (%s)\n",
 		startConfig.Name, startConfig.Image, common.ContainerShortID(resp.ID))
 	return resp.ID, nil
 }
 
-func (d *DockerExecutor) ExecContainer(containerName string, command []string) (string, error) {
+func (d *DockerAPIExecutor) ExecContainer(containerName string, command []string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 	execConfig := types.ExecConfig{
@@ -225,12 +251,12 @@ func (d *DockerExecutor) ExecContainer(containerName string, command []string) (
 		return "", fmt.Errorf("error inspecting exec: %w", err)
 	}
 
-	log.Info("[dockerclient] exec %s %v (exitCode=%d, outBytes=%d)\n",
+	log.Info("[docker-api] exec %s %v (exitCode=%d, outBytes=%d)\n",
 		containerName, command, execInspect.ExitCode, outBuf.Len())
 	return outBuf.String(), nil
 }
 
-func (d *DockerExecutor) GetContainerLogs(containerID string) (string, error) {
+func (d *DockerAPIExecutor) GetContainerLogs(containerID string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 	options := container.LogsOptions{ShowStdout: true, ShowStderr: true}
@@ -246,11 +272,11 @@ func (d *DockerExecutor) GetContainerLogs(containerID string) (string, error) {
 		return "", fmt.Errorf("error copying logs: %w", err)
 	}
 
-	log.Info("[dockerclient] logs %s (%d bytes)\n", containerID, sbStdOut.Len())
+	log.Info("[docker-api] logs %s (%d bytes)\n", containerID, sbStdOut.Len())
 	return sbStdOut.String(), nil
 }
 
-func (d *DockerExecutor) KillContainer(containerID string) (string, error) {
+func (d *DockerAPIExecutor) KillContainer(containerID string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -261,11 +287,11 @@ func (d *DockerExecutor) KillContainer(containerID string) (string, error) {
 		return "", fmt.Errorf("error killing container: %w", err)
 	}
 
-	log.Info("[dockerclient] kill %s\n", containerID)
+	log.Info("[docker-api] kill %s\n", containerID)
 	return "", nil
 }
 
-func (d *DockerExecutor) StopContainer(containerID string) error {
+func (d *DockerAPIExecutor) StopContainer(containerID string) error {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -279,11 +305,11 @@ func (d *DockerExecutor) StopContainer(containerID string) error {
 	if err != nil {
 		return fmt.Errorf("error stopping container: %w", err)
 	}
-	log.Info("[dockerclient] stop %s\n", containerID)
+	log.Info("[docker-api] stop %s\n", containerID)
 	return nil
 }
 
-func (d *DockerExecutor) RemoveContainer(cf ContainerFilter) error {
+func (d *DockerAPIExecutor) RemoveContainer(cf ContainerFilter) error {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -299,41 +325,41 @@ func (d *DockerExecutor) RemoveContainer(cf ContainerFilter) error {
 		return fmt.Errorf("error removing container: %w", err)
 	}
 
-	log.Info("[dockerclient] remove %s\n", cf.Name)
+	log.Info("[docker-api] remove %s\n", cf.Name)
 	return nil
 }
 
-func (d *DockerExecutor) inspectContainer(containerID string) (types.ContainerJSON, error) {
+func (d *DockerAPIExecutor) inspectContainer(containerID string) (types.ContainerJSON, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 	containerJSON, err := d.client.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return types.ContainerJSON{}, fmt.Errorf("error inspecting container: %w", err)
 	}
-	log.Debug("[dockerclient] inspect %s\n", containerID)
+	log.Debug("[docker-api] inspect %s\n", containerID)
 	return containerJSON, nil
 }
 
-func (d *DockerExecutor) GetContainerExitCode(cf ContainerFilter) (int, error) {
+func (d *DockerAPIExecutor) GetContainerExitCode(cf ContainerFilter) (int, error) {
 	container, err := d.inspectContainer(cf.Name)
 	if err != nil {
 		return -1, err
 	}
-	log.Info("[dockerclient] %s exitcode=%s\n", cf.Name, container.State.ExitCode)
+	log.Info("[docker-api] %s exitcode=%s\n", cf.Name, container.State.ExitCode)
 	return container.State.ExitCode, nil
 }
 
-func (d *DockerExecutor) GetContainerIP(containerID string) (string, error) {
+func (d *DockerAPIExecutor) GetContainerIP(containerID string) (string, error) {
 	container, err := d.inspectContainer(containerID)
 	if err != nil {
 		return "", err
 	}
-	log.Info("[dockerclient] IP for %s is %s\n", containerID,
+	log.Info("[docker-api] IP for %s is %s\n", containerID,
 		container.NetworkSettings.DefaultNetworkSettings.IPAddress)
 	return container.NetworkSettings.DefaultNetworkSettings.IPAddress, nil
 }
 
-func (d *DockerExecutor) GetContainerPort(containerID string) (string, error) {
+func (d *DockerAPIExecutor) GetContainerPort(containerID string) (string, error) {
 	containerJSON, err := d.inspectContainer(containerID)
 	if err != nil {
 		return "-1", err
@@ -349,86 +375,40 @@ func (d *DockerExecutor) GetContainerPort(containerID string) (string, error) {
 		}
 	}
 
-	log.Info("[dockerclient] port for %s is %s\n", containerID, containerPort)
+	log.Info("[docker-api] port for %s is %s\n", containerID, containerPort)
 	return containerPort, nil
 }
 
-func (d *DockerExecutor) CheckContainerHealthy(containerID string) (bool, error) {
+func (d *DockerAPIExecutor) CheckContainerHealthy(containerID string) (bool, error) {
 	containerJSON, err := d.inspectContainer(containerID)
 	if err != nil {
 		return false, err
 	}
-	log.Info("[dockerclient] %s is %v\n", containerID, containerJSON.State.Health.Status)
+	log.Info("[docker-api] %s is %v\n", containerID, containerJSON.State.Health.Status)
 	return containerJSON.State.Health.Status == "healthy", nil
 }
 
-func (d *DockerExecutor) CheckContainerRunning(containerID string) (bool, error) {
+func (d *DockerAPIExecutor) CheckContainerRunning(containerID string) (bool, error) {
 	containerJSON, err := d.inspectContainer(containerID)
 	if err != nil {
 		return false, err
 	}
-	log.Info("[dockerclient] %s running: %v\n", containerID, containerJSON.State.Running)
+	log.Info("[docker-api] %s running: %v\n", containerID, containerJSON.State.Running)
 	return containerJSON.State.Running, nil
 }
 
-func (d *DockerExecutor) CheckContainerExists(cf ContainerFilter) (bool, error) {
+func (d *DockerAPIExecutor) CheckContainerExists(cf ContainerFilter) (bool, error) {
 	_, err := d.inspectContainer(cf.Name)
 	if err != nil {
-		log.Info("[dockerclient] %s does not exist\n", cf.Name)
+		log.Info("[docker-api] %s does not exist\n", cf.Name)
 		return false, err
 	}
 
-	log.Info("[dockerclient] %s exists\n", cf.Name)
+	log.Info("[docker-api] %s exists\n", cf.Name)
 	return true, nil
 }
 
-func findAuth() (*registry.AuthConfig, error) {
-	for _, path := range authFiles {
-		expanded := os.ExpandEnv(path)
-
-		file, err := os.Open(expanded)
-		if err != nil {
-			continue
-		}
-		defer file.Close()
-
-		// if we find a file, then we should use it
-		// so propagage errors up the stack after this point
-
-		bytes, err := ioutil.ReadAll(file)
-		if err != nil {
-			return nil, err
-		}
-
-		var auths struct {
-			Auths map[string]registry.AuthConfig
-		}
-
-		err = json.Unmarshal(bytes, &auths)
-		if err != nil {
-			return nil, err
-		}
-
-		main_auth := auths.Auths[MAIN_REGISTRY]
-		main_auth.ServerAddress = MAIN_REGISTRY
-
-		if main_auth.Username == "" && main_auth.Auth != "" {
-			auth_plain, err := base64.StdEncoding.DecodeString(main_auth.Auth)
-			if err != nil {
-				return nil, err
-			}
-			split := strings.Split(string(auth_plain), ":")
-			main_auth.Username = split[0]
-			main_auth.Password = split[1]
-		}
-
-		return &main_auth, nil
-	}
-
-	return nil, fmt.Errorf("Unable to find any auth json files")
-}
-
-func (d *DockerExecutor) PullImage(ref string) error {
+func (d *DockerAPIExecutor) PullImage(ref string) error {
 	imgFilter := filters.NewArgs(filters.KeyValuePair{
 		Key:   "reference",
 		Value: ref,
@@ -442,7 +422,7 @@ func (d *DockerExecutor) PullImage(ref string) error {
 	}
 
 	if len(images) != 0 {
-		log.Info("[dockerclient] %s already exists", ref)
+		log.Info("[docker-api] %s already exists", ref)
 		return nil
 	}
 	reader, err := d.client.ImagePull(context.Background(), ref, image.PullOptions{
@@ -454,6 +434,6 @@ func (d *DockerExecutor) PullImage(ref string) error {
 	defer reader.Close()
 
 	io.Copy(io.Discard, reader)
-	log.Info("[dockerclient] pulled %s", ref)
+	log.Info("[docker-api] pulled %s", ref)
 	return nil
 }

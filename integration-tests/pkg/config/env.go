@@ -12,7 +12,8 @@ const (
 	envCollectorLogLevel     = "COLLECTOR_LOG_LEVEL"
 	envCollectorPreArguments = "COLLECTOR_PRE_ARGUMENTS"
 
-	envHostType = "REMOTE_HOST_TYPE"
+	envHostType          = "REMOTE_HOST_TYPE"
+	envContainerExecutor = "CONTAINER_EXECUTOR"
 
 	envVMInstanceType = "VM_INSTANCE_TYPE"
 	envVMConfig       = "VM_CONFIG"
