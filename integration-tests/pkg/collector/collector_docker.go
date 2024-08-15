@@ -123,9 +123,9 @@ func (c *DockerCollectorManager) createCollectorStartConfig() (executor.Containe
 		Image:       config.Images().CollectorImage(),
 		Privileged:  true,
 		NetworkMode: "host",
-		Mounts:      c.mounts,
 		Env:         c.env,
 	}
+	log.Info("Creating collector without %+v mounts", c.mounts)
 
 	configJson, err := json.Marshal(c.config)
 	if err != nil {
