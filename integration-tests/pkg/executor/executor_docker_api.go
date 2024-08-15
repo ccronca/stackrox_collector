@@ -238,27 +238,27 @@ func (d *dockerAPIExecutor) ExecContainer(containerName string, command []string
 
 	resp, err := d.client.ContainerExecCreate(ctx, containerName, execConfig)
 	if err != nil {
-		return "", fmt.Errorf("error creating exec: %w", err)
+		return "", fmt.Errorf("error creating Exec: %w", err)
 	}
 
 	execStartCheck := types.ExecStartCheck{Detach: false, Tty: false}
 	attachResp, err := d.client.ContainerExecAttach(ctx, resp.ID, execStartCheck)
 	if err != nil {
-		return "", fmt.Errorf("error attaching to exec: %w", err)
+		return "", fmt.Errorf("error attaching to Exec: %w", err)
 	}
 	defer attachResp.Close()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
 	if err != nil {
-		return "", fmt.Errorf("error reading exec output: %w", err)
+		return "", fmt.Errorf("error reading Exec output: %w", err)
 	}
 
 	execInspect, err := d.client.ContainerExecInspect(ctx, resp.ID)
 	if err != nil {
-		return "", fmt.Errorf("error inspecting exec: %w", err)
+		return "", fmt.Errorf("error inspecting Exec: %w", err)
 	}
-	log.Info("[docker-api] exec %s %v (exitCode=%d, outBytes=%d)\n",
+	log.Info("[docker-api] Exec %s %v (exitCode=%d, outBytes=%d)\n",
 		containerName, command, execInspect.ExitCode, stdoutBuf.Len())
 	return stdoutBuf.String(), nil
 }
@@ -298,7 +298,7 @@ func (d *dockerAPIExecutor) KillContainer(containerID string) (string, error) {
 	return "", nil
 }
 
-func (d *dockerAPIExecutor) StopContainer(containerID string) error {
+func (d *dockerAPIExecutor) StopContainer(name string) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -308,15 +308,15 @@ func (d *dockerAPIExecutor) StopContainer(containerID string) error {
 	}
 	timeoutContext, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	err := d.client.ContainerStop(timeoutContext, containerID, stopOptions)
+	err := d.client.ContainerStop(timeoutContext, name, stopOptions)
 	if err != nil {
-		return fmt.Errorf("error stopping container: %w", err)
+		return "", fmt.Errorf("error stopping container: %w", err)
 	}
-	log.Debug("[docker-api] stop %s\n", containerID)
-	return nil
+	log.Debug("[docker-api] stop %s\n", name)
+	return "", nil
 }
 
-func (d *dockerAPIExecutor) RemoveContainer(cf ContainerFilter) error {
+func (d *dockerAPIExecutor) RemoveContainer(cf ContainerFilter) (string, error) {
 	ctx := context.Background()
 	defer d.client.Close()
 
@@ -329,11 +329,11 @@ func (d *dockerAPIExecutor) RemoveContainer(cf ContainerFilter) error {
 	defer cancel()
 	err := d.client.ContainerRemove(timeoutContext, cf.Name, removeOptions)
 	if err != nil {
-		return fmt.Errorf("error removing container: %w", err)
+		return "", fmt.Errorf("error removing container: %w", err)
 	}
 
 	log.Debug("[docker-api] remove %s\n", cf.Name)
-	return nil
+	return "", nil
 }
 
 func (d *dockerAPIExecutor) inspectContainer(containerID string) (types.ContainerJSON, error) {

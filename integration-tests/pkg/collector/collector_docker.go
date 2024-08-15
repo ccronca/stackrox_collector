@@ -172,7 +172,7 @@ func (c *DockerCollectorManager) captureLogs(containerName string) (string, erro
 
 func (c *DockerCollectorManager) killContainer(name string) error {
 	_, err1 := c.executor.KillContainer(name)
-	err2 := c.executor.RemoveContainer(executor.ContainerFilter{
+	_, err2 := c.executor.RemoveContainer(executor.ContainerFilter{
 		Name: name,
 	})
 
@@ -188,7 +188,7 @@ func (c *DockerCollectorManager) killContainer(name string) error {
 }
 
 func (c *DockerCollectorManager) stopContainer(name string) error {
-	err := c.executor.StopContainer(name)
+	_, err := c.executor.StopContainer(name)
 	return err
 }
 

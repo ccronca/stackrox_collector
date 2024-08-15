@@ -12,20 +12,20 @@ type ContainerFilter struct {
 }
 
 type Executor interface {
-	ContainerExists(filter ContainerFilter) (bool, error)
+	PullImage(image string) error
 	IsContainerRunning(container string) (bool, error)
-	ExecContainer(containerName string, command []string) (string, error)
+	ContainerExists(filter ContainerFilter) (bool, error)
 	ExitCode(filter ContainerFilter) (int, error)
+	ExecContainer(containerName string, command []string) (string, error)
+	KillContainer(name string) (string, error)
+	RemoveContainer(filter ContainerFilter) (string, error)
+	StopContainer(name string) (string, error)
+	StartContainer(config ContainerStartConfig) (string, error)
 	GetContainerHealthCheck(containerID string) (string, error)
 	GetContainerIP(containerID string) (string, error)
 	GetContainerLogs(containerID string) (string, error)
 	GetContainerPort(containerID string) (string, error)
 	IsContainerFoundFiltered(containerID, filter string) (bool, error)
-	KillContainer(name string) (string, error)
-	PullImage(image string) error
-	RemoveContainer(filter ContainerFilter) error
-	StartContainer(config ContainerStartConfig) (string, error)
-	StopContainer(name string) error
 }
 
 type ContainerStartConfig struct {
