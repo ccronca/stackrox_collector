@@ -176,7 +176,7 @@ func (s *IntegrationTestSuiteBase) RegisterCleanup(containers ...string) {
 
 		// StopCollector is safe when collector isn't running, but the container must exist.
 		// This will ensure that logs are still written even when test setup fails
-		exists, _ := s.Executor().CheckContainerExists(executor.ContainerFilter{Name: "collector"})
+		exists, _ := s.Executor().ContainerExists(executor.ContainerFilter{Name: "collector"})
 		if exists {
 			s.StopCollector()
 		}
@@ -476,12 +476,12 @@ func (s *IntegrationTestSuiteBase) waitForFileToBeDeleted(file string) error {
 		case <-timer:
 			return fmt.Errorf("Timed out waiting for %s to be deleted", file)
 		case <-ticker.C:
-			if config.HostInfo().IsLocal() || config.HostInfo().Kind == "api" {
+			if config.HostInfo().IsLocal() {
 				if _, err := os.Stat(file); os.IsNotExist(err) {
 					return nil
 				}
 			} else {
-				return errors.New("waitForFileToBeDeleted not supported on non-local hosts")
+				return errors.New("waitForFileToBeDeleted only supported local hosts")
 			}
 		}
 	}

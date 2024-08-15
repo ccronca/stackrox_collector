@@ -72,10 +72,6 @@ ci-integration-tests:
 ci-benchmarks:
 	make -C integration-tests ci-benchmarks
 
-.PHONY: ci-benchmarks
-ci-build-image:
-	make -C integration-tests build-image
-
 .PHONY: ci-all-tests
 ci-all-tests: ci-benchmarks ci-integration-tests
 
@@ -121,11 +117,6 @@ shfmt-format:
 .PHONY: shellcheck-all
 shellcheck-all:
 	./utilities/shellcheck-all/shellcheck-all.sh
-
-.PHONY: k8s-test
-k8s-test:
-	ansible-playbook --tags clean-up -i $(CURDIR)/ansible/k8s_inventory.yml -e @$(CURDIR)/ansible/k8s_vars.yml $(CURDIR)/ansible/k8s-integration-tests.yml
-	ansible-playbook --tags test-only -i $(CURDIR)/ansible/k8s_inventory.yml -e @$(CURDIR)/ansible/k8s_vars.yml $(CURDIR)/ansible/k8s-integration-tests.yml
 
 .PHONY: shellcheck-all-dockerized
 shellcheck-all-dockerized:

@@ -19,7 +19,7 @@ var (
 	RuntimeAsRoot  = config.RuntimeInfo().RunAsRoot
 )
 
-type containerProcessExecutor struct {
+type dockerExecutor struct {
 	builder CommandBuilder
 }
 
@@ -40,18 +40,18 @@ func newLocalCommandBuilder() CommandBuilder {
 	return &localCommandBuilder{}
 }
 
-func newContainerProcessExecutor() (*containerProcessExecutor, error) {
+func newDockerExecutor() (*dockerExecutor, error) {
 	// While this function can't fail, to conform to the
 	// same construction API as other executors, we keep the
 	// error return value.
 
-	return &containerProcessExecutor{
+	return &dockerExecutor{
 		builder: newLocalCommandBuilder(),
 	}, nil
 }
 
 // exec executes the provided command with retries on non-zero error from the command.
-func (e *containerProcessExecutor) exec(args ...string) (string, error) {
+func (e *dockerExecutor) exec(args ...string) (string, error) {
 	if args[0] == RuntimeCommand && RuntimeAsRoot {
 		args = append([]string{"sudo"}, args...)
 	}
@@ -62,7 +62,7 @@ func (e *containerProcessExecutor) exec(args ...string) (string, error) {
 
 // execWithErrorCheck executes the provided command, retrying if an error occurs
 // and the command's output does not contain any of the accepted output contents.
-func (e *containerProcessExecutor) execWithErrorCheck(errCheckFn func(string, error) error, args ...string) (string, error) {
+func (e *dockerExecutor) execWithErrorCheck(errCheckFn func(string, error) error, args ...string) (string, error) {
 	if args[0] == RuntimeCommand && RuntimeAsRoot {
 		args = append([]string{"sudo"}, args...)
 	}
@@ -72,14 +72,14 @@ func (e *containerProcessExecutor) execWithErrorCheck(errCheckFn func(string, er
 }
 
 // execWithoutRetry executes provided command once, without retries.
-func (e *containerProcessExecutor) execWithoutRetry(args ...string) (string, error) {
+func (e *dockerExecutor) execWithoutRetry(args ...string) (string, error) {
 	if args[0] == RuntimeCommand && RuntimeAsRoot {
 		args = append([]string{"sudo"}, args...)
 	}
 	return e.RunCommand(e.builder.ExecCommand(args...))
 }
 
-func (e *containerProcessExecutor) RunCommand(cmd *exec.Cmd) (string, error) {
+func (e *dockerExecutor) RunCommand(cmd *exec.Cmd) (string, error) {
 	if cmd == nil {
 		return "", nil
 	}
@@ -94,7 +94,7 @@ func (e *containerProcessExecutor) RunCommand(cmd *exec.Cmd) (string, error) {
 	return trimmed, err
 }
 
-func (e *containerProcessExecutor) PullImage(image string) error {
+func (e *dockerExecutor) PullImage(image string) error {
 	_, err := e.execWithoutRetry(RuntimeCommand, "image", "inspect", image)
 	if err == nil {
 		return nil
@@ -103,7 +103,7 @@ func (e *containerProcessExecutor) PullImage(image string) error {
 	return err
 }
 
-func (e *containerProcessExecutor) CheckContainerRunning(containerID string) (bool, error) {
+func (e *dockerExecutor) IsContainerRunning(containerID string) (bool, error) {
 	result, err := e.execWithoutRetry(RuntimeCommand, "inspect", containerID, "--format='{{.State.Running}}'")
 	if err != nil {
 		return false, err
@@ -111,7 +111,7 @@ func (e *containerProcessExecutor) CheckContainerRunning(containerID string) (bo
 	return strconv.ParseBool(strings.Trim(result, "\"'"))
 }
 
-func (e *containerProcessExecutor) CheckContainerExists(cf ContainerFilter) (bool, error) {
+func (e *dockerExecutor) ContainerExists(cf ContainerFilter) (bool, error) {
 	_, err := e.execWithoutRetry(RuntimeCommand, "inspect", cf.Name)
 	if err != nil {
 		return false, err
@@ -119,8 +119,8 @@ func (e *containerProcessExecutor) CheckContainerExists(cf ContainerFilter) (boo
 	return true, nil
 }
 
-func (e *containerProcessExecutor) GetContainerExitCode(cf ContainerFilter) (int, error) {
-	result, err := e.exec(RuntimeCommand, "inspect", cf.Name, "--format='{{.State.GetContainerExitCode}}'")
+func (e *dockerExecutor) ExitCode(cf ContainerFilter) (int, error) {
+	result, err := e.exec(RuntimeCommand, "inspect", cf.Name, "--format='{{.State.ExitCode}}'")
 	if err != nil {
 		return -1, err
 	}
@@ -149,29 +149,29 @@ func containerErrorCheckFunction(name string, cmd string) func(string, error) er
 }
 
 // KillContainer runs the kill operation on the provided container name
-func (e *containerProcessExecutor) KillContainer(name string) (string, error) {
+func (e *dockerExecutor) KillContainer(name string) (string, error) {
 	return e.execWithErrorCheck(containerErrorCheckFunction(name, "kill"), RuntimeCommand, "kill", name)
 }
 
 // RemoveContainer runs the remove operation on the provided container name
-func (e *containerProcessExecutor) RemoveContainer(cf ContainerFilter) error {
+func (e *dockerExecutor) RemoveContainer(cf ContainerFilter) error {
 	_, err := e.execWithErrorCheck(containerErrorCheckFunction(cf.Name, "remove"), RuntimeCommand, "rm", cf.Name)
 	return err
 }
 
 // StopContainer runs the stop operation on the provided container name
-func (e *containerProcessExecutor) StopContainer(name string) error {
+func (e *dockerExecutor) StopContainer(name string) error {
 	_, err := e.execWithErrorCheck(containerErrorCheckFunction(name, "stop"), RuntimeCommand, "stop", name)
 	return err
 }
 
-func (e *containerProcessExecutor) ExecContainer(containerName string, command []string) (string, error) {
+func (e *dockerExecutor) ExecContainer(containerName string, command []string) (string, error) {
 	cmd := []string{RuntimeCommand, "exec", containerName}
 	cmd = append(cmd, command...)
 	return e.exec(cmd...)
 }
 
-func (e *containerProcessExecutor) StartContainer(startConfig ContainerStartConfig) (string, error) {
+func (e *dockerExecutor) StartContainer(startConfig ContainerStartConfig) (string, error) {
 	var cmd []string
 	cmd = append(cmd, RuntimeCommand, "run", "-d")
 
@@ -217,7 +217,7 @@ func (e *containerProcessExecutor) StartContainer(startConfig ContainerStartConf
 	return containerID, nil
 }
 
-func (e *containerProcessExecutor) GetContainerLogs(containerName string) (string, error) {
+func (e *dockerExecutor) GetContainerLogs(containerName string) (string, error) {
 	logs, err := e.exec(RuntimeCommand, "logs", containerName)
 	if err != nil {
 		log.Error("error getting logs for container %s: %v\n", containerName, err)
@@ -226,7 +226,7 @@ func (e *containerProcessExecutor) GetContainerLogs(containerName string) (strin
 	return logs, nil
 }
 
-func (e *containerProcessExecutor) IsContainerFoundFiltered(containerID, filter string) (bool, error) {
+func (e *dockerExecutor) IsContainerFoundFiltered(containerID, filter string) (bool, error) {
 	cmd := []string{
 		RuntimeCommand, "ps", "-qa",
 		"--filter", "id=" + containerID,
@@ -246,7 +246,7 @@ func (e *containerProcessExecutor) IsContainerFoundFiltered(containerID, filter 
 	return false, nil
 }
 
-func (e *containerProcessExecutor) GetContainerHealthCheck(containerName string) (string, error) {
+func (e *dockerExecutor) GetContainerHealthCheck(containerName string) (string, error) {
 	cmd := []string{RuntimeCommand, "inspect", "-f", "'{{ .Config.Healthcheck }}'", containerName}
 	output, err := e.exec(cmd...)
 	if err != nil {
@@ -263,12 +263,12 @@ func (e *containerProcessExecutor) GetContainerHealthCheck(containerName string)
 	return lastLine, nil
 }
 
-func (e *containerProcessExecutor) GetContainerIP(containerName string) (string, error) {
+func (e *dockerExecutor) GetContainerIP(containerName string) (string, error) {
 	stdoutStderr, err := e.exec(RuntimeCommand, "inspect", "--format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'", containerName)
 	return strings.Replace(string(stdoutStderr), "'", "", -1), err
 }
 
-func (e *containerProcessExecutor) GetContainerPort(containerName string) (string, error) {
+func (e *dockerExecutor) GetContainerPort(containerName string) (string, error) {
 	stdoutStderr, err := e.exec(RuntimeCommand, "inspect", "--format='{{json .NetworkSettings.Ports}}'", containerName)
 	if err != nil {
 		return "", err

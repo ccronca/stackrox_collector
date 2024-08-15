@@ -12,10 +12,10 @@ type ContainerFilter struct {
 }
 
 type Executor interface {
-	CheckContainerExists(filter ContainerFilter) (bool, error)
-	CheckContainerRunning(container string) (bool, error)
+	ContainerExists(filter ContainerFilter) (bool, error)
+	IsContainerRunning(container string) (bool, error)
 	ExecContainer(containerName string, command []string) (string, error)
-	GetContainerExitCode(filter ContainerFilter) (int, error)
+	ExitCode(filter ContainerFilter) (int, error)
 	GetContainerHealthCheck(containerID string) (string, error)
 	GetContainerIP(containerID string) (string, error)
 	GetContainerLogs(containerID string) (string, error)
@@ -48,5 +48,5 @@ func New() (Executor, error) {
 	if config.ContainerExecutor() == config.DockerAPIContainerExecutor {
 		return newDockerAPIExecutor()
 	}
-	return newContainerProcessExecutor()
+	return newDockerExecutor()
 }

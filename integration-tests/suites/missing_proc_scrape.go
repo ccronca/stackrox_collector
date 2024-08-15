@@ -79,7 +79,7 @@ func (s *MissingProcScrapeTestSuite) SetupSuite() {
 }
 
 func (s *MissingProcScrapeTestSuite) TestCollectorRunning() {
-	collectorRunning, err := s.executor.CheckContainerRunning("collector")
+	collectorRunning, err := s.executor.IsContainerRunning("collector")
 	s.Require().NoError(err)
 	assert.True(s.T(), collectorRunning, "Collector isn't running")
 }

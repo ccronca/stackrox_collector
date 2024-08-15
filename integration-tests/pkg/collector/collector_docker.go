@@ -95,7 +95,7 @@ func (c *DockerCollectorManager) TearDown() error {
 	if !isRunning {
 		c.captureLogs("collector")
 		// Check if collector container segfaulted or exited with error
-		exitCode, err := c.executor.GetContainerExitCode(executor.ContainerFilter{
+		exitCode, err := c.executor.ExitCode(executor.ContainerFilter{
 			Name: "collector",
 		})
 		if err != nil {
@@ -114,7 +114,7 @@ func (c *DockerCollectorManager) TearDown() error {
 }
 
 func (c *DockerCollectorManager) IsRunning() (bool, error) {
-	return c.executor.CheckContainerRunning("collector")
+	return c.executor.IsContainerRunning("collector")
 }
 
 func (c *DockerCollectorManager) createCollectorStartConfig() (executor.ContainerStartConfig, error) {
